@@ -27,6 +27,7 @@ global Toggled := Map()        ; name -> bool, for Toggle-mode tricks
 global Enabled := true         ; master on/off (output gate)
 global JoyPrev := Map()        ; controller edge-detection state
 global StatusGui := ""
+global TrayModeMenu := ""      ; "Force activation mode" submenu
 
 ;----------------------------------------------------------------------------
 ;  Boot
@@ -34,8 +35,10 @@ global StatusGui := ""
 EnsureConfig()
 LoadConfig()
 BuildHotkeys()
+BuildTray()
 BuildStatusGui()
 SetupController()
+RefreshTrayChecks()
 UpdateStatus()
 TrayTip("Moonwalk Pro loaded. F8 = master toggle, F9 = detect controller button.", "Moonwalk Pro", 1)
 return
@@ -57,6 +60,8 @@ LoadConfig() {
     G.OnlyWhenGameActive  := Integer(IniRead(CONFIG_FILE, "General", "OnlyWhenGameActive", "0"))
     G.GameProcess         := IniRead(CONFIG_FILE, "General", "GameProcess", "DeadByDaylight-Win64-Shipping.exe")
     G.ShowStatusGui       := Integer(IniRead(CONFIG_FILE, "General", "ShowStatusGui", "1"))
+    ; "" = use each trick's own Mode; "Hold"/"Toggle" force every (non-Tap) trick.
+    G.ModeOverride        := IniRead(CONFIG_FILE, "General", "DefaultMode", "")
     G.MasterToggleKey     := IniRead(CONFIG_FILE, "General", "MasterToggleKey", "F8")
     G.PanicStopKey        := IniRead(CONFIG_FILE, "General", "PanicStopKey", "F10")
     G.DetectControllerKey := IniRead(CONFIG_FILE, "General", "DetectControllerKey", "F9")
@@ -126,15 +131,24 @@ BuildHotkeys() {
     }
 }
 
+; Effective mode = the trick's own mode unless a global override forces it.
+; Tap tricks (360s/jukes) are never coerced into Hold/Toggle.
+EffMode(t) {
+    if (t.mode = "Tap")
+        return "Tap"
+    return (G.ModeOverride = "") ? t.mode : G.ModeOverride
+}
+
 OnKeyTrigger(name, *) {
     t := Tricks[name]
-    if (t.mode = "Hold") {
+    mode := EffMode(t)
+    if (mode = "Hold") {
         ; Guard against keyboard auto-repeat re-launching the loop.
         if (ActiveTrick = name)
             return
         isActive := () => Enabled && GameOK() && ActiveTrick = name && GetKeyState(t.key, "P")
         StartTrick(name, isActive)
-    } else if (t.mode = "Toggle") {
+    } else if (mode = "Toggle") {
         FireToggle(name)
         KeyWait(t.key)            ; debounce: ignore auto-repeat until released
     } else {                      ; Tap
@@ -174,12 +188,13 @@ PollController() {
         joyKey := JoyButtonName(t.joy)
         cur := GetKeyState(joyKey) ? true : false
         prev := JoyPrev.Has(name) ? JoyPrev[name] : false
+        mode := EffMode(t)
 
         if (cur && !prev) {              ; rising edge = press
-            if (t.mode = "Toggle")
+            if (mode = "Toggle")
                 FireToggle(name)
             else {                       ; Hold or Tap
-                if !(t.mode = "Hold" && ActiveTrick = name) {
+                if !(mode = "Hold" && ActiveTrick = name) {
                     isActive := MakeJoyActiveFn(name, t)
                     StartTrick(name, isActive)
                 }
@@ -190,7 +205,7 @@ PollController() {
 }
 
 MakeJoyActiveFn(name, t) {
-    if (t.mode = "Hold")
+    if (EffMode(t) = "Hold")
         return () => Enabled && GameOK() && ActiveTrick = name && GetKeyState(JoyButtonName(t.joy))
     return () => Enabled && GameOK() && ActiveTrick = name   ; Tap
 }
@@ -224,7 +239,7 @@ RunTrick(name, isActive) {
     }
 
     ; --- Sustain ---
-    if (t.mode != "Tap") {
+    if (EffMode(t) != "Tap") {
         if (t.sustain.Length) {
             while isActive() {
                 for tok in t.sustain {
@@ -302,6 +317,7 @@ ToggleMaster() {
     Enabled := !Enabled
     if !Enabled
         StopAll()
+    RefreshTrayChecks()
     UpdateStatus()
     TrayTip("Moonwalk Pro " (Enabled ? "ENABLED" : "DISABLED"), "Moonwalk Pro", 1)
 }
@@ -340,16 +356,72 @@ DetectController() {
 ;============================================================================
 ;  STATUS GUI  +  TRAY
 ;============================================================================
-BuildStatusGui() {
-    global StatusGui
+; Right-click tray menu = the settings panel (works the same in the compiled .exe).
+BuildTray() {
+    global TrayModeMenu
+    TrayModeMenu := Menu()
+    TrayModeMenu.Add("Per-trick (use config)", SetMode.Bind(""))
+    TrayModeMenu.Add("Hold all",   SetMode.Bind("Hold"))
+    TrayModeMenu.Add("Toggle all", SetMode.Bind("Toggle"))
+
     A_TrayMenu.Delete()
-    A_TrayMenu.Add("Edit config.ini", (*) => Run("notepad.exe " CONFIG_FILE))
-    A_TrayMenu.Add("Reload", (*) => Reload())
-    A_TrayMenu.Add("Toggle master (F8)", (*) => ToggleMaster())
+    A_TrayMenu.Add("Moonwalk Pro", (*) => "")
+    A_TrayMenu.Disable("Moonwalk Pro")
+    A_TrayMenu.Add()
+    A_TrayMenu.Add("Enabled  (F8)",          (*) => ToggleMaster())
+    A_TrayMenu.Add("Force activation mode",  TrayModeMenu)
+    A_TrayMenu.Add("Sprint while active",    (*) => FlipSetting("General", "Sprinting", "Sprinting"))
+    A_TrayMenu.Add("Only when game focused", (*) => FlipSetting("General", "OnlyWhenGameActive", "OnlyWhenGameActive"))
+    A_TrayMenu.Add()
+    A_TrayMenu.Add("Edit settings (config.ini)", (*) => Run('notepad.exe "' CONFIG_FILE '"'))
+    A_TrayMenu.Add("Open script folder",         (*) => Run(A_ScriptDir))
+    A_TrayMenu.Add("Reload settings",            (*) => Reload())
+    A_TrayMenu.Add("Help / guide",               (*) => OpenHelp())
     A_TrayMenu.Add()
     A_TrayMenu.Add("Exit", (*) => ExitApp())
-    A_TrayMenu.Default := "Reload"
+    A_TrayMenu.Default := "Enabled  (F8)"
+    A_TrayMenu.ClickCount := 2
+    try TraySetIcon("shell32.dll", 28)   ; a generic icon so it's visible in the tray
+}
 
+; Reflect current state as check marks in the tray menu.
+RefreshTrayChecks() {
+    SetCheck(A_TrayMenu, "Enabled  (F8)",          Enabled)
+    SetCheck(A_TrayMenu, "Sprint while active",    G.Sprinting)
+    SetCheck(A_TrayMenu, "Only when game focused", G.OnlyWhenGameActive)
+    SetCheck(TrayModeMenu, "Per-trick (use config)", G.ModeOverride = "")
+    SetCheck(TrayModeMenu, "Hold all",               G.ModeOverride = "Hold")
+    SetCheck(TrayModeMenu, "Toggle all",             G.ModeOverride = "Toggle")
+}
+
+SetCheck(menu, item, on) {
+    try on ? menu.Check(item) : menu.Uncheck(item)
+}
+
+SetMode(mode, *) {
+    G.ModeOverride := mode
+    IniWrite(mode, CONFIG_FILE, "General", "DefaultMode")
+    StopAll()
+    RefreshTrayChecks()
+}
+
+; Flip a 1/0 setting, persist it, and update the menu check.
+FlipSetting(section, key, field) {
+    G.%field% := G.%field% ? 0 : 1
+    IniWrite(G.%field%, CONFIG_FILE, section, key)
+    RefreshTrayChecks()
+}
+
+OpenHelp() {
+    if FileExist(A_ScriptDir "\README.md")
+        Run(A_ScriptDir "\README.md")
+    else
+        MsgBox("Triggers (default):`n  Numpad3 = moonwalk back`n  Numpad2 = moonwalk forward`n  Numpad1 = 360 spin`n  Numpad0 = quick juke`n`nSystem keys:`n  F8 = enable/disable`n  F9 = detect controller button`n  F10 = panic stop`n`nEdit settings via the tray menu to change keys, timings and tricks.",
+            "Moonwalk Pro - quick help")
+}
+
+BuildStatusGui() {
+    global StatusGui
     if !G.ShowStatusGui
         return
     StatusGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x20", "Moonwalk Pro")
@@ -399,6 +471,9 @@ OnlyWhenGameActive=0
 GameProcess=DeadByDaylight-Win64-Shipping.exe
 ; Tiny on-screen status overlay. 1=show 0=hide
 ShowStatusGui=1
+; Force a mode on every (non-Tap) trick: blank=per-trick, Hold, or Toggle.
+; Also switchable live from the tray menu -> Force activation mode.
+DefaultMode=
 ; System hotkeys
 MasterToggleKey=F8
 PanicStopKey=F10

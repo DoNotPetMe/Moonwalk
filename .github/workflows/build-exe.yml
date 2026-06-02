@@ -1,0 +1,78 @@
+name: Build Moonwalk Pro (.exe)
+
+# Compiles moonwalk.ahk into a standalone Windows .exe on a Windows runner,
+# so you can download a ready-to-run app without installing AutoHotkey.
+#
+# How to get your app:
+#   1. Open the "Actions" tab on GitHub.
+#   2. Click the latest "Build Moonwalk Pro (.exe)" run.
+#   3. Download the "MoonwalkPro" artifact (a zip) at the bottom.
+#   4. Unzip it and double-click MoonwalkPro.exe. It lives in the tray.
+
+on:
+  push:
+    paths:
+      - "moonwalk.ahk"
+      - "config.ini"
+      - ".github/workflows/build-exe.yml"
+  workflow_dispatch: {}        # lets you run it manually from the Actions tab
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download AutoHotkey v2 (portable) + compiler
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path ahk | Out-Null
+
+          Write-Host "Downloading AutoHotkey v2 zip..."
+          Invoke-WebRequest "https://www.autohotkey.com/download/ahk-v2.zip" -OutFile ahk\ahk.zip
+          Expand-Archive ahk\ahk.zip -DestinationPath ahk -Force
+
+          # Base stub used by the compiler:
+          $base = Get-ChildItem ahk -Recurse -Filter AutoHotkey64.exe | Select-Object -First 1
+          if (-not $base) { throw "AutoHotkey64.exe not found in zip" }
+          "AHK_BASE=$($base.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+          # Ahk2Exe is usually bundled in the zip's Compiler folder:
+          $ahk2exe = Get-ChildItem ahk -Recurse -Filter Ahk2Exe.exe | Select-Object -First 1
+          if (-not $ahk2exe) {
+            Write-Host "Compiler not bundled; downloading Ahk2Exe from GitHub..."
+            $rel = Invoke-RestMethod "https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest" `
+                     -Headers @{ "User-Agent" = "gh-actions" }
+            $asset = $rel.assets | Where-Object { $_.name -like "*.zip" } | Select-Object -First 1
+            Invoke-WebRequest $asset.browser_download_url -OutFile ahk\ahk2exe.zip
+            Expand-Archive ahk\ahk2exe.zip -DestinationPath ahk\compiler -Force
+            $ahk2exe = Get-ChildItem ahk\compiler -Recurse -Filter Ahk2Exe.exe | Select-Object -First 1
+          }
+          if (-not $ahk2exe) { throw "Ahk2Exe.exe could not be located" }
+          "AHK2EXE=$($ahk2exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "Compiler: $($ahk2exe.FullName)"
+          Write-Host "Base:     $($base.FullName)"
+
+      - name: Compile MoonwalkPro.exe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          & "$env:AHK2EXE" /in "moonwalk.ahk" /out "MoonwalkPro.exe" /base "$env:AHK_BASE"
+          if (-not (Test-Path "MoonwalkPro.exe")) { throw "Compilation produced no exe" }
+          Write-Host "Built MoonwalkPro.exe"
+
+      - name: Stage release files
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item MoonwalkPro.exe dist\
+          Copy-Item config.ini      dist\ -ErrorAction SilentlyContinue
+          Copy-Item README.md       dist\ -ErrorAction SilentlyContinue
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonwalkPro
+          path: dist/

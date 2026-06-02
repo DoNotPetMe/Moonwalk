@@ -14,21 +14,48 @@ per-trick **Hold / Toggle / Tap** activation modes.
 
 ---
 
-## 1. Requirements
+## 1. Get the compiled app (no AutoHotkey install needed)
 
-- **AutoHotkey v2.0+** — download from <https://www.autohotkey.com/>
-  (the script declares `#Requires AutoHotkey v2.0`; the old MPGH script was v1
-  and is **not** compatible).
-- A controller is optional. Any XInput/DirectInput pad Windows recognizes works.
+Just like the original, you can run this as a **single tray app** — no need to
+download or learn AutoHotkey. GitHub builds the `.exe` for you:
 
-## 2. Install & run
+1. Go to the **Actions** tab of this repository.
+2. Open the most recent **“Build Moonwalk Pro (.exe)”** run.
+3. At the bottom, download the **`MoonwalkPro`** artifact (a zip).
+4. Unzip it and double-click **`MoonwalkPro.exe`**.
+
+It runs in the **hidden-icons area** of the taskbar tray. **Right-click the tray
+icon** for the settings menu (enable/disable, force Hold/Toggle, sprint, edit
+config, reload, etc.). On first launch it creates `config.ini` beside the exe.
+
+> Prefer building it yourself? Install AutoHotkey v2 and run `build.bat`, or just
+> run the raw script (below).
+
+## 2. Run the raw script instead (optional)
+
+- Requires **AutoHotkey v2.0+** from <https://www.autohotkey.com/> (the old MPGH
+  script was v1 and is **not** compatible).
+- A controller is optional — any XInput/DirectInput pad Windows recognizes works.
 
 1. Install AutoHotkey v2.
-2. Put `moonwalk.ahk` in a folder of your choice.
-3. Double-click `moonwalk.ahk`. On first run it auto-creates `config.ini` next
-   to it with sensible defaults.
-4. A small overlay appears (top-left) showing status. The tray icon has
-   **Edit config / Reload / Toggle master / Exit**.
+2. Put `moonwalk.ahk` in a folder; double-click it.
+3. First run auto-creates `config.ini` with sensible defaults; a small status
+   overlay appears and the tray icon holds the settings menu.
+
+## 2a. Tray menu (the settings panel)
+
+Right-click the tray icon — same in the compiled exe and the raw script:
+
+| Item | Does |
+|------|------|
+| **Enabled (F8)** | Master on/off (checkmark shows state) |
+| **Force activation mode ▸** | Make *every* trick Hold-all / Toggle-all, or use each trick's own setting. This is the one-click equivalent of the original's separate “hold” and “toggle” builds. |
+| **Sprint while active** | Toggle sprint-hold on/off |
+| **Only when game focused** | Don't fire unless the game window is active |
+| **Edit settings (config.ini)** | Opens the config in Notepad |
+| **Open script folder** / **Reload settings** / **Help** / **Exit** | Self-explanatory |
+
+Changes made from the tray are saved to `config.ini` automatically.
 
 ## 3. System hotkeys (default)
 
