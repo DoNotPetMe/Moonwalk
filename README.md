@@ -14,7 +14,7 @@ per-trick **Hold / Toggle / Tap** activation modes.
 
 ---
 
-## 1. Get the compiled app (no AutoHotkey install needed)
+## 1. Get the compiled app
 
 Just like the original, you can run this as a **single tray app** — no need to
 download or learn AutoHotkey. GitHub builds the `.exe` for you:
