@@ -20,48 +20,56 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 10        # guard against the compiler hanging on a dialog
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download AutoHotkey v2 (portable) + compiler
+      - name: Fetch AutoHotkey v2 + Ahk2Exe (from GitHub Releases)
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          New-Item -ItemType Directory -Force -Path ahk | Out-Null
+          New-Item -ItemType Directory -Force -Path tools | Out-Null
+          $api = @{ "User-Agent" = "gh-actions"; "Authorization" = "Bearer $env:GH_TOKEN"; "Accept" = "application/vnd.github+json" }
+          $dl  = @{ "User-Agent" = "gh-actions" }
 
-          Write-Host "Downloading AutoHotkey v2 zip..."
-          Invoke-WebRequest "https://www.autohotkey.com/download/ahk-v2.zip" -OutFile ahk\ahk.zip
-          Expand-Archive ahk\ahk.zip -DestinationPath ahk -Force
+          # --- AutoHotkey v2 portable zip (provides AutoHotkey64.exe as the base stub) ---
+          Write-Host "Resolving latest AutoHotkey v2 release..."
+          $rel = Invoke-RestMethod "https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest" -Headers $api
+          $zip = $rel.assets | Where-Object { $_.name -match '^AutoHotkey_.*\.zip$' } | Select-Object -First 1
+          if (-not $zip) { throw "No AutoHotkey portable .zip asset on the latest release" }
+          Write-Host "Downloading $($zip.name)"
+          Invoke-WebRequest $zip.browser_download_url -OutFile tools\ahk.zip -Headers $dl
+          Expand-Archive tools\ahk.zip -DestinationPath tools\ahk -Force
 
-          # Base stub used by the compiler:
-          $base = Get-ChildItem ahk -Recurse -Filter AutoHotkey64.exe | Select-Object -First 1
-          if (-not $base) { throw "AutoHotkey64.exe not found in zip" }
+          $base = Get-ChildItem tools\ahk -Recurse -Filter AutoHotkey64.exe | Select-Object -First 1
+          if (-not $base) { throw "AutoHotkey64.exe not found inside the zip" }
           "AHK_BASE=$($base.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-          # Ahk2Exe is usually bundled in the zip's Compiler folder:
-          $ahk2exe = Get-ChildItem ahk -Recurse -Filter Ahk2Exe.exe | Select-Object -First 1
-          if (-not $ahk2exe) {
-            Write-Host "Compiler not bundled; downloading Ahk2Exe from GitHub..."
-            $rel = Invoke-RestMethod "https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest" `
-                     -Headers @{ "User-Agent" = "gh-actions" }
-            $asset = $rel.assets | Where-Object { $_.name -like "*.zip" } | Select-Object -First 1
-            Invoke-WebRequest $asset.browser_download_url -OutFile ahk\ahk2exe.zip
-            Expand-Archive ahk\ahk2exe.zip -DestinationPath ahk\compiler -Force
-            $ahk2exe = Get-ChildItem ahk\compiler -Recurse -Filter Ahk2Exe.exe | Select-Object -First 1
-          }
-          if (-not $ahk2exe) { throw "Ahk2Exe.exe could not be located" }
-          "AHK2EXE=$($ahk2exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
-          Write-Host "Compiler: $($ahk2exe.FullName)"
+          # --- Ahk2Exe compiler (stable asset name -> use the 'latest' download redirect) ---
+          Write-Host "Downloading Ahk2Exe compiler..."
+          Invoke-WebRequest "https://github.com/AutoHotkey/Ahk2Exe/releases/latest/download/Ahk2Exe.exe" `
+            -OutFile tools\Ahk2Exe.exe -Headers $dl
+          "AHK2EXE=$((Resolve-Path tools\Ahk2Exe.exe).Path)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
           Write-Host "Base:     $($base.FullName)"
+          Write-Host "Compiler: $((Resolve-Path tools\Ahk2Exe.exe).Path)"
 
       - name: Compile MoonwalkPro.exe
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          & "$env:AHK2EXE" /in "moonwalk.ahk" /out "MoonwalkPro.exe" /base "$env:AHK_BASE"
-          if (-not (Test-Path "MoonwalkPro.exe")) { throw "Compilation produced no exe" }
-          Write-Host "Built MoonwalkPro.exe"
+          # Ahk2Exe is a GUI app, so Start-Process -Wait is required to actually
+          # block until it finishes (the '&' operator would return immediately).
+          $args = @("/in", "moonwalk.ahk", "/out", "MoonwalkPro.exe", "/base", "$env:AHK_BASE")
+          $p = Start-Process -FilePath "$env:AHK2EXE" -ArgumentList $args -Wait -PassThru -NoNewWindow
+          Write-Host "Ahk2Exe exit code: $($p.ExitCode)"
+          if (-not (Test-Path "MoonwalkPro.exe")) { Start-Sleep -Seconds 3 }
+          if (-not (Test-Path "MoonwalkPro.exe")) { throw "Compilation produced no .exe" }
+          $f = Get-Item "MoonwalkPro.exe"
+          Write-Host "Built MoonwalkPro.exe ($([math]::Round($f.Length/1KB)) KB)"
 
       - name: Stage release files
         shell: pwsh
