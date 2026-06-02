@@ -1,83 +1,56 @@
 name: Build Moonwalk Pro (.exe)
 
-# Compiles moonwalk.ahk into a standalone Windows .exe on a Windows runner,
-# so you can download a ready-to-run app without installing AutoHotkey.
+# Publishes a single, self-contained Windows .exe (no .NET install needed by you).
 #
 # How to get your app:
 #   1. Open the "Actions" tab on GitHub.
 #   2. Click the latest "Build Moonwalk Pro (.exe)" run.
 #   3. Download the "MoonwalkPro" artifact (a zip) at the bottom.
-#   4. Unzip it and double-click MoonwalkPro.exe. It lives in the tray.
+#   4. Unzip and double-click MoonwalkPro.exe. It lives in the tray.
 
 on:
   push:
     paths:
-      - "moonwalk.ahk"
+      - "**/*.cs"
+      - "**/*.csproj"
       - "config.ini"
       - ".github/workflows/build-exe.yml"
-  workflow_dispatch: {}        # lets you run it manually from the Actions tab
+  workflow_dispatch: {}
 
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 10        # guard against the compiler hanging on a dialog
-    env:
-      GH_TOKEN: ${{ github.token }}
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Fetch AutoHotkey v2 + Ahk2Exe (from GitHub Releases)
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Publish single-file self-contained exe
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          New-Item -ItemType Directory -Force -Path tools | Out-Null
-          $api = @{ "User-Agent" = "gh-actions"; "Authorization" = "Bearer $env:GH_TOKEN"; "Accept" = "application/vnd.github+json" }
-          $dl  = @{ "User-Agent" = "gh-actions" }
-
-          # --- AutoHotkey v2 portable zip (provides AutoHotkey64.exe as the base stub) ---
-          Write-Host "Resolving latest AutoHotkey v2 release..."
-          $rel = Invoke-RestMethod "https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest" -Headers $api
-          $zip = $rel.assets | Where-Object { $_.name -match '^AutoHotkey_.*\.zip$' } | Select-Object -First 1
-          if (-not $zip) { throw "No AutoHotkey portable .zip asset on the latest release" }
-          Write-Host "Downloading $($zip.name)"
-          Invoke-WebRequest $zip.browser_download_url -OutFile tools\ahk.zip -Headers $dl
-          Expand-Archive tools\ahk.zip -DestinationPath tools\ahk -Force
-
-          $base = Get-ChildItem tools\ahk -Recurse -Filter AutoHotkey64.exe | Select-Object -First 1
-          if (-not $base) { throw "AutoHotkey64.exe not found inside the zip" }
-          "AHK_BASE=$($base.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-          # --- Ahk2Exe compiler (stable asset name -> use the 'latest' download redirect) ---
-          Write-Host "Downloading Ahk2Exe compiler..."
-          Invoke-WebRequest "https://github.com/AutoHotkey/Ahk2Exe/releases/latest/download/Ahk2Exe.exe" `
-            -OutFile tools\Ahk2Exe.exe -Headers $dl
-          "AHK2EXE=$((Resolve-Path tools\Ahk2Exe.exe).Path)" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-          Write-Host "Base:     $($base.FullName)"
-          Write-Host "Compiler: $((Resolve-Path tools\Ahk2Exe.exe).Path)"
-
-      - name: Compile MoonwalkPro.exe
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          # Ahk2Exe is a GUI app, so Start-Process -Wait is required to actually
-          # block until it finishes (the '&' operator would return immediately).
-          $args = @("/in", "moonwalk.ahk", "/out", "MoonwalkPro.exe", "/base", "$env:AHK_BASE")
-          $p = Start-Process -FilePath "$env:AHK2EXE" -ArgumentList $args -Wait -PassThru -NoNewWindow
-          Write-Host "Ahk2Exe exit code: $($p.ExitCode)"
-          if (-not (Test-Path "MoonwalkPro.exe")) { Start-Sleep -Seconds 3 }
-          if (-not (Test-Path "MoonwalkPro.exe")) { throw "Compilation produced no .exe" }
-          $f = Get-Item "MoonwalkPro.exe"
-          Write-Host "Built MoonwalkPro.exe ($([math]::Round($f.Length/1KB)) KB)"
+          dotnet publish MoonwalkPro.csproj `
+            -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -o publish
+          if (-not (Test-Path "publish/MoonwalkPro.exe")) { throw "Publish produced no exe" }
+          $f = Get-Item "publish/MoonwalkPro.exe"
+          Write-Host "Built MoonwalkPro.exe ($([math]::Round($f.Length/1MB,1)) MB)"
 
       - name: Stage release files
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item MoonwalkPro.exe dist\
-          Copy-Item config.ini      dist\ -ErrorAction SilentlyContinue
-          Copy-Item README.md       dist\ -ErrorAction SilentlyContinue
+          Copy-Item publish/MoonwalkPro.exe dist/
+          Copy-Item config.ini dist/ -ErrorAction SilentlyContinue
+          Copy-Item README.md  dist/ -ErrorAction SilentlyContinue
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

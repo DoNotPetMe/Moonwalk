@@ -1,74 +1,60 @@
 # Moonwalk Pro
 
-A clean, professional rewrite of the classic Dead by Daylight moonwalk macro.
-It's a **data-driven input automation script**: tricks are defined as step
-sequences in `config.ini`, so you can tune existing tricks or invent new ones
-without ever touching the code. Keyboard **and** controller triggers, with
-per-trick **Hold / Toggle / Tap** activation modes.
+A **native Windows tray app** for Dead by Daylight movement tech (moonwalking,
+jukes, circle-strafes). No AutoHotkey — it's a self-contained C#/.NET app. Tricks
+are defined as step sequences in `config.ini`, so you can tune them or invent new
+ones without touching code. Keyboard **and** Xbox-controller triggers, with
+per-trick **Hold / Toggle / Tap** modes.
 
-> ⚠️ **Use responsibly.** This automates the same movement inputs a player
-> performs by hand (moonwalking, jukes, 360s). It does **not** read game
-> memory, see through walls, or give aim/wall hacks. Macros can still violate a
-> game's Terms of Service — use it for practice/personal play and at your own
-> risk.
+> ⚠️ **Use responsibly.** This automates the same movement inputs a player does by
+> hand. It does **not** read game memory, see walls, or aim for you. Macros can
+> still violate a game's Terms of Service, and Dead by Daylight's anti-cheat can
+> detect external automation by its presence regardless of how human the timing
+> looks. Treat it as a practice / custom-game tool, at your own risk.
 
 ---
 
-## 1. Get the compiled app
+## 1. Get the app (nothing to install)
 
-Just like the original, you can run this as a **single tray app** — no need to
-download or learn AutoHotkey. GitHub builds the `.exe` for you:
+1. Go to the **Actions** tab of this repo.
+2. Open the latest **“Build Moonwalk Pro (.exe)”** run.
+3. Download the **`MoonwalkPro`** artifact (a zip) at the bottom.
+4. Unzip and double-click **`MoonwalkPro.exe`**.
 
-1. Go to the **Actions** tab of this repository.
-2. Open the most recent **“Build Moonwalk Pro (.exe)”** run.
-3. At the bottom, download the **`MoonwalkPro`** artifact (a zip).
-4. Unzip it and double-click **`MoonwalkPro.exe`**.
+It's a single self-contained executable — **no .NET, no AutoHotkey, nothing to
+install.** It runs in the **hidden-icons** area of the taskbar tray. On first
+launch it writes `config.ini` next to itself.
 
-It runs in the **hidden-icons area** of the taskbar tray. **Right-click the tray
-icon** for the settings menu (enable/disable, force Hold/Toggle, sprint, edit
-config, reload, etc.). On first launch it creates `config.ini` beside the exe.
+## 2. Tray menu (the settings panel)
 
-> Prefer building it yourself? Install AutoHotkey v2 and run `build.bat`, or just
-> run the raw script (below).
-
-## 2. Run the raw script instead (optional)
-
-- Requires **AutoHotkey v2.0+** from <https://www.autohotkey.com/> (the old MPGH
-  script was v1 and is **not** compatible).
-- A controller is optional — any XInput/DirectInput pad Windows recognizes works.
-
-1. Install AutoHotkey v2.
-2. Put `moonwalk.ahk` in a folder; double-click it.
-3. First run auto-creates `config.ini` with sensible defaults; a small status
-   overlay appears and the tray icon holds the settings menu.
-
-## 2a. Tray menu (the settings panel)
-
-Right-click the tray icon — same in the compiled exe and the raw script:
+**Right-click the tray icon:**
 
 | Item | Does |
 |------|------|
 | **Enabled (F8)** | Master on/off (checkmark shows state) |
-| **Force activation mode ▸** | Make *every* trick Hold-all / Toggle-all, or use each trick's own setting. This is the one-click equivalent of the original's separate “hold” and “toggle” builds. |
-| **Sprint while active** | Toggle sprint-hold on/off |
+| **Force activation mode ▸** | Make *every* trick Hold-all / Toggle-all, or use each trick's own setting |
+| **Sprint while active** | Toggle sprint-hold |
 | **Only when game focused** | Don't fire unless the game window is active |
-| **Edit settings (config.ini)** | Opens the config in Notepad |
-| **Open script folder** / **Reload settings** / **Help** / **Exit** | Self-explanatory |
+| **Edit settings (config.ini)** | Opens config in Notepad |
+| **Open folder / Reload settings** | Self-explanatory |
+| **Detect controller button (F9)** | Press a pad button, this tells you its name |
+| **Help / Exit** | — |
 
-Changes made from the tray are saved to `config.ini` automatically.
+Changes from the menu are saved to `config.ini` automatically. Double-clicking the
+tray icon toggles enable/disable.
 
-## 3. System hotkeys (default)
+## 3. System hotkeys
 
-| Key  | Action |
-|------|--------|
-| `F8`  | Master toggle — enable/disable all output |
-| `F10` | Panic stop — instantly release every key |
-| `F9`  | Detect controller button — hold a pad button, press F9, it tells you the number |
+| Key | Action |
+|-----|--------|
+| `F8`  | Enable / disable all output |
+| `F10` | Panic stop — release every key |
+| `F9`  | Detect controller button (shows the name to bind) |
 
 ## 4. The trick engine
 
-Every trick has up to two sequences: an **Intro** (played once) and a
-**Sustain** (looped while active). Both use the same tiny token language:
+Each trick has an **Intro** (played once) and a **Sustain** (looped while active).
+Both use the same token language:
 
 ```
 F = forward    B = backward    L = left    R = right    S = sprint
@@ -78,38 +64,34 @@ Diagonal  = combine keys  press several at once                     ->  FL:120
 Chain     = commas        run steps in order                        ->  L:200,B:300,L:200,F:300
 ```
 
-`MS` is milliseconds. If you omit `:MS` a step defaults to 100ms.
+`MS` is milliseconds (omit `:MS` for a 100ms default).
 
 ### Activation modes (`Mode=` per trick)
 
-| Mode     | Behavior |
-|----------|----------|
-| `Hold`   | Runs Intro, then loops Sustain **while you hold** the trigger. Release = stop. |
-| `Toggle` | Press once to start (Intro + Sustain loop), press again to stop. |
-| `Tap`    | Runs Intro once and finishes. Good for 360s / quick jukes. |
+| Mode | Behavior |
+|------|----------|
+| `Hold` | Intro, then loops Sustain **while held**. Release = stop. |
+| `Toggle` | Press to start, press again to stop. |
+| `Tap` | Runs Intro once. Good for circle-strafes / quick jukes. |
 
-If `Sprinting=1`, the sprint key is held down for the entire duration of any
-trick and released automatically when it ends.
-
-## 5. Configuration reference (`config.ini`)
+## 5. Configuration (`config.ini`)
 
 ```ini
 [General]
-SendMode=Event              ; Event (most compatible) | Input (fastest) | Play
-Sprinting=1                 ; hold sprint during tricks: 1/0
-OnlyWhenGameActive=0        ; only fire when the game window is focused: 1/0
+Sprinting=1                 ; hold sprint during tricks
+OnlyWhenGameActive=0        ; only fire when the game window is focused
 GameProcess=DeadByDaylight-Win64-Shipping.exe
-ShowStatusGui=1             ; on-screen overlay: 1/0
-DefaultMode=                ; blank=per-trick | Hold | Toggle (force all tricks)
-Humanize=1                  ; add natural timing variation: 1/0
-JitterPercent=15            ; +/- random variation applied to each hold
-MinStepMs=30                ; floor: no step ever shorter than this (ms)
-MaxGapMs=10                 ; max random gap inserted between steps (ms)
+ShowStatusGui=1             ; on-screen overlay
+DefaultMode=                ; blank=per-trick | Hold | Toggle (force all)
+Humanize=1                  ; natural timing variation
+JitterPercent=15            ; +/- random variation per hold
+MinStepMs=30                ; floor: no step ever shorter than this
+MaxGapMs=10                 ; max random gap between steps
 MasterToggleKey=F8
 PanicStopKey=F10
 DetectControllerKey=F9
 
-[Movement]                  ; your in-game movement binds
+[Movement]                  ; your in-game binds
 Forward=w
 Backward=s
 Left=a
@@ -118,117 +100,74 @@ Sprint=Shift
 
 [Controller]
 Enabled=1
-JoyID=1                     ; joystick number (use F9 if unsure)
-PollRate=10                 ; ms between controller polls
+PlayerIndex=1               ; XInput slot 1-4
+PollRate=10
 
 [Tricks]
-List=MoonwalkBackward,MoonwalkForward,Spin360,QuickJuke
+List=MoonwalkBackward,MoonwalkForward,CircleStrafe,QuickJuke
 ```
 
-Each name in `List` gets its own section:
+Each name in `List` gets a section:
 
 ```ini
 [MoonwalkBackward]
 Mode=Hold
 Key=Numpad3                 ; keyboard trigger ("" to disable)
-JoyButton=5                 ; controller button number (0 to disable)
+JoyButton=LB                ; controller button name(s), comma-separated ("" to disable)
 Intro=L:200,B:300,L:200,F:300
 Sustain=L:60,R:60
 ```
 
-Hotkey names follow AutoHotkey syntax:
-<https://www.autohotkey.com/docs/v2/KeyList.htm>
+**Key names:** letters, digits, `Numpad0`–`Numpad9`, `F1`–`F24`, `Shift`, `Ctrl`,
+`Alt`, `Space`, arrows, etc.
+**Controller button names:** `A B X Y LB RB LT RT LS RS Back Start DUp DDown
+DLeft DRight` (press `F9` to discover which is which).
 
-## 6. Adding your own trick
+### Add your own trick
 
-1. Add a name to `List=` in `[Tricks]`.
-2. Add a matching `[YourTrickName]` section with `Mode`, `Key`/`JoyButton`,
-   `Intro`, and optional `Sustain`.
-3. Save and **Reload** (tray menu or restart the script).
+1. Add a name to `List=`.
+2. Add a `[YourTrick]` section with `Mode`, `Key`/`JoyButton`, `Intro`, optional `Sustain`.
+3. Tray → **Reload settings**.
 
-Example — a "spin then drift backward" combo on Toggle:
+## 6. Timing realism & detection (read this)
 
-```ini
-[Tricks]
-List=MoonwalkBackward,MoonwalkForward,Spin360,QuickJuke,SpinDrift
+The default hold times come straight from the long-running community moonwalk
+script — real, field-tested values, not made-up numbers. On top of that the
+engine keeps inputs human-plausible:
 
-[SpinDrift]
-Mode=Toggle
-Key=Numpad4
-JoyButton=0
-Intro=R:300,B:300,L:300,F:300
-Sustain=L:70,R:70
-```
-
-## 7. Controller setup
-
-1. Set `[Controller] Enabled=1`.
-2. Find your pad number: hold a button, press `F9`. The tooltip shows the
-   joystick button number and reminds you of the `JoyID`.
-3. Put that number in each trick's `JoyButton=`.
-4. Set `JoyID=` if you have more than one device (default `1`).
-
-Polling means Hold and Toggle both work correctly from the controller, not just
-single presses.
-
-## 8. Tuning tips
-
-- **Stuttering / not registering in-game?** Try `SendMode=Input`. If a step
-  feels dropped, nudge its `MS` up by 10–20ms.
-- **Moonwalk "drops" too early?** Lower the Sustain tap times (e.g. `L:50,R:50`).
-- **Too twitchy?** Raise Sustain tap times.
-- **Diagonals** (`FL`, `BR`, …) give smoother, more believable juke arcs than
-  pure cardinal taps.
-- Keep `OnlyWhenGameActive=1` so the macro never fires while you're typing.
-
-## 9. Mapping to the old MPGH settings
-
-The original script's numbered `Time1..Time11` are just hold durations. They map
-directly onto the new token sequences:
-
-| Old | Meaning | New equivalent |
-|-----|---------|----------------|
-| Hotkey1–4 | walk F/B/L/R | `[Movement]` Forward/Backward/Left/Right |
-| Hotkey5   | sprint | `[Movement] Sprint` + `Sprinting=1` |
-| Hotkey6/7 | activate back/forward moonwalk | `[MoonwalkBackward] Key` / `[MoonwalkForward] Key` |
-| Time1–4   | backward-moonwalk intro holds | `[MoonwalkBackward] Intro=L:200,B:300,L:200,F:300` |
-| Time5/6   | backward sustain taps | `[MoonwalkBackward] Sustain=L:60,R:60` |
-| Time7–9   | forward-moonwalk intro holds | `[MoonwalkForward] Intro=F:200,L:300,B:400` |
-| Time10/11 | forward sustain taps | `[MoonwalkForward] Sustain=L:80,R:80` |
-
-Everything the old script did is reproducible, plus diagonals, controller
-support, Toggle/Tap modes, panic stop, and unlimited custom tricks.
-
-## 10. Timing realism & detection (read this)
-
-The default hold times are taken straight from the long-running community script
-you referenced — they're values real players have used, not made-up numbers. On
-top of that, the engine keeps inputs **human-plausible**:
-
-- **`MinStepMs` floor** — no step is ever held shorter than ~30ms, so you can't
-  accidentally configure a faster-than-human tap (e.g. a typo'd `L:3`).
+- **`MinStepMs` floor** — no step is held shorter than ~30ms, so you can't
+  configure a faster-than-human tap by mistake.
 - **`Humanize` + `JitterPercent`** — every hold gets a small random ± variation,
-  so the macro never sends the exact same robotic duration twice.
-- **`MaxGapMs`** — small random gaps between presses, instead of perfectly
-  back-to-back, machine-clean inputs.
+  so it never sends the exact same robotic duration twice.
+- **`MaxGapMs`** — small random gaps between presses instead of machine-clean,
+  perfectly back-to-back input.
 
-The fastest default cadence (the `L:60,R:60` sustain wiggle) is roughly 7–8 taps
-per key per second — squarely within what people do by hand when juking. Nothing
-in the defaults asks the game for an impossible input.
+Inputs are sent as hardware-style **scan codes** (`SendInput`), which is what most
+games actually read.
 
 > **Honest caveat:** humanizing the *timing* makes the pattern look natural, but
-> it does **not** make the tool invisible. Dead by Daylight runs Easy Anti-Cheat,
-> which can detect external input/automation programs by their presence,
-> regardless of how realistic the timings are. Treat this as a practice / custom-
-> game tool. Using it in ranked/public play can still violate the game's Terms of
-> Service and carry a ban risk. That's your call — the script just makes sure it
-> isn't doing anything physically impossible.
+> it does **not** make the tool invisible. Easy Anti-Cheat can detect external
+> input/automation programs by their presence regardless of timing. Using this in
+> public/ranked play can violate the game's ToS and carry a ban risk. Your call —
+> the app just makes sure it isn't doing anything physically impossible.
 
-## 11. Troubleshooting
+## 7. Build it yourself (optional)
 
-- **Nothing happens** → Check `F8` master state (overlay shows `ON/OFF`), and
-  that AutoHotkey **v2** is installed (v1 will throw syntax errors).
-- **Keys get "stuck" down** → press `F10` (panic stop). Lower per-step times.
-- **Controller ignored** → `Enabled=1`, correct `JoyID`, and use `F9` to confirm
-  the button number.
+You don't need to — GitHub builds the exe. But if you want to:
+
+```
+dotnet publish MoonwalkPro.csproj -c Release -r win-x64 --self-contained true ^
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+```
+
+Requires the .NET 8 SDK. Output: `publish/MoonwalkPro.exe`.
+
+## 8. Troubleshooting
+
+- **Nothing happens** → check the `F8` master state (overlay shows `ON/OFF`).
+- **Keys feel stuck** → press `F10` (panic). Raise low per-step times.
+- **Controller ignored** → `Enabled=1`, correct `PlayerIndex`, and use `F9` to
+  confirm the button name.
 - **Fires while typing** → set `OnlyWhenGameActive=1`.
+- **Windows SmartScreen warning** → the exe is unsigned; “More info → Run anyway”.
+  (Self-built/CI artifacts from open code; sign it yourself if you prefer.)
