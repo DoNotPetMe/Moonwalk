@@ -60,6 +60,12 @@ LoadConfig() {
     G.OnlyWhenGameActive  := Integer(IniRead(CONFIG_FILE, "General", "OnlyWhenGameActive", "0"))
     G.GameProcess         := IniRead(CONFIG_FILE, "General", "GameProcess", "DeadByDaylight-Win64-Shipping.exe")
     G.ShowStatusGui       := Integer(IniRead(CONFIG_FILE, "General", "ShowStatusGui", "1"))
+    ; Human-plausibility: jitter every hold so timings aren't robot-perfect, and
+    ; never let a step drop below a humanly possible duration.
+    G.Humanize            := Integer(IniRead(CONFIG_FILE, "General", "Humanize", "1"))
+    G.JitterPercent       := Integer(IniRead(CONFIG_FILE, "General", "JitterPercent", "15"))
+    G.MinStepMs           := Integer(IniRead(CONFIG_FILE, "General", "MinStepMs", "30"))
+    G.MaxGapMs            := Integer(IniRead(CONFIG_FILE, "General", "MaxGapMs", "10"))
     ; "" = use each trick's own Mode; "Hold"/"Toggle" force every (non-Tap) trick.
     G.ModeOverride        := IniRead(CONFIG_FILE, "General", "DefaultMode", "")
     G.MasterToggleKey     := IniRead(CONFIG_FILE, "General", "MasterToggleKey", "F8")
@@ -281,10 +287,26 @@ DoStep(token, isActive) {
     for k in keys
         Send("{" k " down}")
 
-    InterruptibleSleep(ms, isActive)
+    InterruptibleSleep(HumanMs(ms), isActive)
 
     loop keys.Length                       ; release in reverse order
         Send("{" keys[keys.Length - A_Index + 1] " up}")
+
+    ; Small random gap so presses aren't perfectly back-to-back (more human).
+    if (G.Humanize && G.MaxGapMs > 0)
+        InterruptibleSleep(Random(0, G.MaxGapMs), isActive)
+}
+
+; Clamp a hold time to a humanly possible floor, then apply +/- jitter so the
+; macro never produces robot-perfect, identical-every-time durations.
+HumanMs(ms) {
+    base := ms < G.MinStepMs ? G.MinStepMs : ms
+    if !G.Humanize || G.JitterPercent <= 0
+        return base
+    span := Round(base * G.JitterPercent / 100)
+    out  := base + Random(-span, span)
+    floor := G.MinStepMs > 20 ? G.MinStepMs - 10 : 15   ; keep it plausible
+    return out < floor ? floor : out
 }
 
 InterruptibleSleep(ms, isActive) {
@@ -474,6 +496,19 @@ ShowStatusGui=1
 ; Force a mode on every (non-Tap) trick: blank=per-trick, Hold, or Toggle.
 ; Also switchable live from the tray menu -> Force activation mode.
 DefaultMode=
+
+; --- Human-plausible timing (keeps inputs from looking robotic) ---
+; 1 = add natural variation to every hold/gap, 0 = play exact config values.
+Humanize=1
+; How much random +/- variation to apply to each hold, as a percentage.
+JitterPercent=15
+; Floor in ms: no single step is ever held shorter than this (avoids
+; impossible, faster-than-human taps even if you mistype a tiny value).
+MinStepMs=30
+; Max random gap (ms) inserted between steps so presses aren't perfectly
+; back-to-back. 0 = no gap.
+MaxGapMs=10
+
 ; System hotkeys
 MasterToggleKey=F8
 PanicStopKey=F10
@@ -496,7 +531,7 @@ PollRate=10
 
 ; List every trick name here (comma separated). Each needs its own [Section].
 [Tricks]
-List=MoonwalkBackward,MoonwalkForward,Spin360,QuickJuke
+List=MoonwalkBackward,MoonwalkForward,CircleStrafe,QuickJuke
 
 ; ---- Backward moonwalk: face forward, drift backward ----
 [MoonwalkBackward]
@@ -514,8 +549,10 @@ JoyButton=6
 Intro=F:200,L:300,B:400
 Sustain=L:80,R:80
 
-; ---- 360 spin (one-shot) ----
-[Spin360]
+; ---- Circle-strafe juke (one-shot) ----
+; Note: WASD only strafes relative to the camera - a true camera 360 needs the
+; mouse. This walks a quick circle around your facing to bait a swing.
+[CircleStrafe]
 Mode=Tap
 Key=Numpad1
 JoyButton=7

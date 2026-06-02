@@ -100,6 +100,11 @@ Sprinting=1                 ; hold sprint during tricks: 1/0
 OnlyWhenGameActive=0        ; only fire when the game window is focused: 1/0
 GameProcess=DeadByDaylight-Win64-Shipping.exe
 ShowStatusGui=1             ; on-screen overlay: 1/0
+DefaultMode=                ; blank=per-trick | Hold | Toggle (force all tricks)
+Humanize=1                  ; add natural timing variation: 1/0
+JitterPercent=15            ; +/- random variation applied to each hold
+MinStepMs=30                ; floor: no step ever shorter than this (ms)
+MaxGapMs=10                 ; max random gap inserted between steps (ms)
 MasterToggleKey=F8
 PanicStopKey=F10
 DetectControllerKey=F9
@@ -194,7 +199,32 @@ directly onto the new token sequences:
 Everything the old script did is reproducible, plus diagonals, controller
 support, Toggle/Tap modes, panic stop, and unlimited custom tricks.
 
-## 10. Troubleshooting
+## 10. Timing realism & detection (read this)
+
+The default hold times are taken straight from the long-running community script
+you referenced — they're values real players have used, not made-up numbers. On
+top of that, the engine keeps inputs **human-plausible**:
+
+- **`MinStepMs` floor** — no step is ever held shorter than ~30ms, so you can't
+  accidentally configure a faster-than-human tap (e.g. a typo'd `L:3`).
+- **`Humanize` + `JitterPercent`** — every hold gets a small random ± variation,
+  so the macro never sends the exact same robotic duration twice.
+- **`MaxGapMs`** — small random gaps between presses, instead of perfectly
+  back-to-back, machine-clean inputs.
+
+The fastest default cadence (the `L:60,R:60` sustain wiggle) is roughly 7–8 taps
+per key per second — squarely within what people do by hand when juking. Nothing
+in the defaults asks the game for an impossible input.
+
+> **Honest caveat:** humanizing the *timing* makes the pattern look natural, but
+> it does **not** make the tool invisible. Dead by Daylight runs Easy Anti-Cheat,
+> which can detect external input/automation programs by their presence,
+> regardless of how realistic the timings are. Treat this as a practice / custom-
+> game tool. Using it in ranked/public play can still violate the game's Terms of
+> Service and carry a ban risk. That's your call — the script just makes sure it
+> isn't doing anything physically impossible.
+
+## 11. Troubleshooting
 
 - **Nothing happens** → Check `F8` master state (overlay shows `ON/OFF`), and
   that AutoHotkey **v2** is installed (v1 will throw syntax errors).
