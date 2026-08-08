@@ -17,6 +17,7 @@ internal sealed class Trick
     public int KeyVk = -1;                 // keyboard trigger virtual-key (-1 = none)
     public string[] JoyButtons = Array.Empty<string>();
     public int SprintOverride = -1;        // -1 = inherit [General] Sprinting, 0 = off, 1 = on
+    public int[] Hold = Array.Empty<int>(); // held down for the whole trick, never released between steps
     public List<Step> Intro = new();
     public List<Step> Sustain = new();
 }
@@ -32,6 +33,7 @@ internal sealed class Config
     public string ModeOverride = "";       // "" = per-trick, else Hold/Toggle
     public int JitterPercent, MinStepMs, MaxGapMs;
     public int MasterToggleVk, PanicStopVk, DetectVk;
+    public int TempoUpVk, TempoDownVk, TempoResetVk, TempoStepMs;
 
     // Movement
     public Dictionary<char, int> KeyMap = new();
@@ -49,19 +51,23 @@ internal sealed class Config
         var ini = new Ini(path);
         var c = new Config { Path = path, Ini = ini };
 
-        c.Sprinting = ini.GetBool("General", "Sprinting", true);
+        c.Sprinting = ini.GetBool("General", "Sprinting", false);
         c.OnlyWhenGameActive = ini.GetBool("General", "OnlyWhenGameActive", false);
         c.GameProcess = ini.Get("General", "GameProcess", "DeadByDaylight-Win64-Shipping.exe")
                            .Replace(".exe", "", StringComparison.OrdinalIgnoreCase).Trim();
         c.ShowStatusGui = ini.GetBool("General", "ShowStatusGui", true);
         c.ModeOverride = ini.Get("General", "DefaultMode", "").Trim();
         c.Humanize = ini.GetBool("General", "Humanize", true);
-        c.JitterPercent = ini.GetInt("General", "JitterPercent", 15);
+        c.JitterPercent = ini.GetInt("General", "JitterPercent", 6);
         c.MinStepMs = ini.GetInt("General", "MinStepMs", 30);
-        c.MaxGapMs = ini.GetInt("General", "MaxGapMs", 10);
+        c.MaxGapMs = ini.GetInt("General", "MaxGapMs", 2);
         c.MasterToggleVk = Keys.Vk(ini.Get("General", "MasterToggleKey", "F8"));
         c.PanicStopVk = Keys.Vk(ini.Get("General", "PanicStopKey", "F10"));
         c.DetectVk = Keys.Vk(ini.Get("General", "DetectControllerKey", "F9"));
+        c.TempoUpVk = Keys.Vk(ini.Get("General", "TempoUpKey", "PgUp"));
+        c.TempoDownVk = Keys.Vk(ini.Get("General", "TempoDownKey", "PgDn"));
+        c.TempoResetVk = Keys.Vk(ini.Get("General", "TempoResetKey", "Home"));
+        c.TempoStepMs = Math.Max(1, ini.GetInt("General", "TempoStepMs", 5));
 
         int f = Keys.Vk(ini.Get("Movement", "Forward", "w"));
         int b = Keys.Vk(ini.Get("Movement", "Backward", "s"));
@@ -83,12 +89,23 @@ internal sealed class Config
                 KeyVk = Keys.Vk(ini.Get(name, "Key", "")),
                 JoyButtons = ini.Get(name, "JoyButton", "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
                 SprintOverride = ini.Get(name, "Sprint", "").Trim() switch { "0" => 0, "1" => 1, _ => -1 },
+                Hold = ParseKeys(ini.Get(name, "Hold", ""), c.KeyMap),
                 Intro = ParseSteps(ini.Get(name, "Intro", ""), c.KeyMap),
                 Sustain = ParseSteps(ini.Get(name, "Sustain", ""), c.KeyMap),
             };
             c.Tricks.Add(t);
         }
         return c;
+    }
+
+    /// <summary>Turns a token like "B" or "BL" into the virtual-keys it names.</summary>
+    static int[] ParseKeys(string letters, Dictionary<char, int> keyMap)
+    {
+        var vks = new List<int>();
+        foreach (char ch in letters.Trim().ToUpperInvariant())
+            if (keyMap.TryGetValue(ch, out int vk) && vk >= 0 && !vks.Contains(vk))
+                vks.Add(vk);
+        return vks.ToArray();
     }
 
     static List<Step> ParseSteps(string seq, Dictionary<char, int> keyMap)
@@ -123,13 +140,19 @@ internal sealed class Config
         ; ============================================================================
         ;  Moonwalk Pro - configuration  (native Windows app, no AutoHotkey)
         ; ----------------------------------------------------------------------------
-        ;  Sequence tokens (Intro / Sustain):
-        ;     F=forward  B=backward  L=left  R=right  S=sprint
-        ;     One step  = DIR:MS   (ms to hold)        e.g.  L:200
+        ;  HOW A MOONWALK IS BUILT
+        ;    Hold=B      -> S is pressed once and stays DOWN for the whole trick.
+        ;    Sustain=... -> A / D alternate on top of that unbroken backward hold.
+        ;  The alternation must never pause: any moment where neither A nor D is
+        ;  pressed gives the turn animation time to finish, and your survivor spins
+        ;  round and runs off. That is why the sustain is only L and R, back to back.
+        ;
+        ;  Sequence tokens (Intro / Sustain / Hold):
+        ;     F=forward  B=backward  L=left  R=right  S=sprint(walk)
+        ;     One step  = DIR:MS   (ms to hold)        e.g.  L:130
         ;     Diagonals = combine letters              e.g.  FL:120  (fwd+left)
-        ;     Chain steps with commas                  e.g.  L:200,B:300,L:200,F:300
-        ;  Intro   = played once.
-        ;  Sustain = looped while held (Hold) or until re-pressed (Toggle).
+        ;     Chain steps with commas                  e.g.  L:130,R:130
+        ;  Intro   = played once.   Sustain = looped while held.
         ; ============================================================================
 
         [General]
@@ -146,17 +169,28 @@ internal sealed class Config
         ; Also switchable live from the tray menu.
         DefaultMode=
 
-        ; --- Human-plausible timing (keeps inputs from looking robotic) ---
+        ; --- Timing ---
+        ; Jitter is deliberately small: the moonwalk depends on an even rhythm, and a
+        ; sloppy one lets the survivor turn.
         Humanize=1
-        JitterPercent=15
+        JitterPercent=6
         ; No step is ever held shorter than this (ms) - avoids impossible taps.
         MinStepMs=30
-        ; Max random gap inserted between steps (ms). 0 = none.
-        MaxGapMs=10
+        ; Max random gap inserted between steps (ms). Keep tiny - a gap is dead time
+        ; where nothing is pressed and the survivor can start turning.
+        MaxGapMs=2
 
         MasterToggleKey=F8
         PanicStopKey=F10
         DetectControllerKey=F9
+
+        ; --- Live tempo tuning (press these mid-match) ---
+        ; If ping makes you creep round mid-moonwalk, nudge every tap up or down a few
+        ; ms until it holds. This is the one setting worth tuning to your connection.
+        TempoUpKey=PgUp
+        TempoDownKey=PgDn
+        TempoResetKey=Home
+        TempoStepMs=5
 
         [Movement]
         Forward=w
@@ -176,74 +210,71 @@ internal sealed class Config
 
         ; Button names: A B X Y LB RB LT RT LS RS Back Start DUp DDown DLeft DRight
         ; (comma-separate to bind several). Press the Detect key to discover names.
-        ; The four moonwalk styles default to the D-pad - swap the JoyButton= lines
-        ; between sections to rearrange them however you like.
+        ; The moonwalks default to the D-pad - swap the JoyButton= lines between
+        ; sections to rearrange them however you like.
 
         [Tricks]
-        List=Moonwalk,StealthMoonwalk,DriftLeft,DriftRight,RapidFlick,SpinEntry
+        List=Moonwalk,StealthMoonwalk,DriftLeft,DriftRight,RhythmOnly
 
-        ; --- D-pad Down: THE survivor moonwalk ---------------------------------------
-        ; Run backwards while your survivor keeps facing forward. The tutorials agree
-        ; it's rhythm, not spam: walk back and give a delicate A or D balance tap about
-        ; every half second, so the turn animation never completes.
+        ; --- D-pad Down: THE moonwalk ------------------------------------------------
+        ; S held down continuously while A and D alternate at 130ms each. 130 is the
+        ; value the long-running community moonwalk tool settles on; if you get turned
+        ; round, nudge it live with PgUp/PgDn rather than editing this.
         [Moonwalk]
         Mode=Hold
         Key=Numpad2
         JoyButton=DDown
         Sprint=0
-        Intro=B:220
-        Sustain=BL:60,B:380,BR:60,B:380
+        Hold=B
+        Intro=
+        Sustain=L:130,R:130
 
         ; --- D-pad Up: stealth (walking) moonwalk ------------------------------------
-        ; The same rhythm at WALK speed (holds Shift). Walking leaves no scratch marks,
-        ; so this is the mind-game version for loops and line-of-sight breaks.
+        ; Same thing at WALK speed (holds Shift). Walking leaves no scratch marks, so
+        ; this is the mind-game version. Slower movement turns slower, so the taps can
+        ; be a little longer.
         [StealthMoonwalk]
         Mode=Hold
         Key=Numpad8
         JoyButton=DUp
         Sprint=1
-        Intro=B:250
-        Sustain=BL:70,B:420,BR:70,B:420
+        Hold=B
+        Intro=
+        Sustain=L:150,R:150
 
-        ; --- D-pad Left / Right: diagonal drift moonwalks ----------------------------
-        ; Weighted balance taps so you slide diagonally backward while still facing
-        ; forward - for drifting around a loop corner mid-moonwalk. Mirror pair.
+        ; --- D-pad Left / Right: drifting moonwalks ----------------------------------
+        ; Same unbroken backward hold, but one side gets a longer tap, so you slide
+        ; that way while still moonwalking. For peeling round a loop mid-glide.
         [DriftLeft]
         Mode=Hold
         Key=Numpad4
         JoyButton=DLeft
         Sprint=0
-        Intro=B:200
-        Sustain=BL:420,BR:80
+        Hold=B
+        Intro=
+        Sustain=L:180,R:90
 
         [DriftRight]
         Mode=Hold
         Key=Numpad6
         JoyButton=DRight
         Sprint=0
-        Intro=B:200
-        Sustain=BR:420,BL:80
+        Hold=B
+        Intro=
+        Sustain=L:90,R:180
 
-        ; --- Extras (keyboard-only by default; give them a JoyButton to pad-bind) ----
-        ; The older fast-flick moonwalk style: constant rapid A/D alternation while
-        ; running backwards. Try both and keep whichever looks better at your FPS.
-        [RapidFlick]
+        ; --- Assist mode (keyboard only by default; add a JoyButton to pad-bind) -----
+        ; No backward hold - YOU hold S yourself and this just supplies the A/D rhythm.
+        ; This is exactly what the original community moonwalk tool does. Use it if you
+        ; want to control the backward movement (and stop it) by hand.
+        [RhythmOnly]
         Mode=Hold
-        Key=Numpad3
+        Key=Numpad5
         JoyButton=
         Sprint=0
+        Hold=
         Intro=
-        Sustain=BL:50,BR:50
-
-        ; Moonwalk entry spin: the quick W>A>S>D circle from the tutorials. Flick the
-        ; right stick the OPPOSITE way while it runs for the fast spin, then start a
-        ; moonwalk trick as it ends.
-        [SpinEntry]
-        Mode=Tap
-        Key=Numpad1
-        JoyButton=
-        Intro=F:80,FL:80,L:80,BL:80,B:80,BR:80,R:80,FR:80
-        Sustain=
+        Sustain=L:130,R:130
 
         """;
 }

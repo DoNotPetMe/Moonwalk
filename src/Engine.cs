@@ -20,16 +20,19 @@ internal sealed class Engine : IDisposable
     readonly Config _cfg;
     readonly Controller _controller;
     readonly Action<string> _notify;
-    readonly Random _rng = new();
+    // Shared instance: trick tasks can briefly overlap while one is being swapped out.
+    static Random Rng => Random.Shared;
 
     Thread? _pollThread;
     volatile bool _running;
 
     volatile string _activeTrick = "";
     readonly ConcurrentDictionary<string, bool> _toggled = new();
+    int _tempoOffsetMs;                     // live +/- nudge for every hold time (ping compensation)
 
     public bool Enabled { get; private set; } = true;
     public string ActiveTrick => _activeTrick;
+    public int TempoOffsetMs => _tempoOffsetMs;
     public Controller Pad => _controller;
 
     public Engine(Config cfg, Action<string> notify)
@@ -60,6 +63,7 @@ internal sealed class Engine : IDisposable
     {
         var prev = new ConcurrentDictionary<string, bool>();
         bool pF8 = false, pF9 = false, pF10 = false;
+        bool pUp = false, pDown = false, pReset = false;
 
         while (_running)
         {
@@ -67,6 +71,9 @@ internal sealed class Engine : IDisposable
             Edge(ref pF8, _cfg.MasterToggleVk, ToggleMaster);
             Edge(ref pF10, _cfg.PanicStopVk, PanicStop);
             Edge(ref pF9, _cfg.DetectVk, DetectController);
+            Edge(ref pUp, _cfg.TempoUpVk, () => NudgeTempo(+_cfg.TempoStepMs));
+            Edge(ref pDown, _cfg.TempoDownVk, () => NudgeTempo(-_cfg.TempoStepMs));
+            Edge(ref pReset, _cfg.TempoResetVk, () => NudgeTempo(0, reset: true));
 
             if (_cfg.JoyEnabled) _controller.Poll();
 
@@ -143,10 +150,15 @@ internal sealed class Engine : IDisposable
         ReleaseAllMovement();
         if (sprint) Input.Down(_cfg.SprintVk);
 
+        // Held keys go down once and stay down for the whole trick. A moonwalk needs
+        // an unbroken backward hold underneath the taps - releasing and re-pressing it
+        // between steps lets the turn animation finish and spins the survivor around.
+        foreach (int vk in t.Hold) Input.Down(vk);
+
         foreach (var step in t.Intro)
         {
             if (!isActive()) break;
-            DoStep(step, isActive);
+            DoStep(step, isActive, t.Hold);
         }
 
         if (!mode.Equals("Tap", StringComparison.OrdinalIgnoreCase))
@@ -157,7 +169,7 @@ internal sealed class Engine : IDisposable
                     foreach (var step in t.Sustain)
                     {
                         if (!isActive()) break;
-                        DoStep(step, isActive);
+                        DoStep(step, isActive, t.Hold);
                     }
             }
             else
@@ -166,6 +178,7 @@ internal sealed class Engine : IDisposable
             }
         }
 
+        for (int i = t.Hold.Length - 1; i >= 0; i--) Input.Up(t.Hold[i]);
         if (sprint) Input.Up(_cfg.SprintVk);
         ReleaseAllMovement();
 
@@ -173,23 +186,26 @@ internal sealed class Engine : IDisposable
         _toggled[t.Name] = false;
     }
 
-    void DoStep(Step step, Func<bool> isActive)
+    void DoStep(Step step, Func<bool> isActive, int[] held)
     {
         int ms = HumanMs(step.Ms);
-        foreach (int vk in step.Vks) Input.Down(vk);
+        foreach (int vk in step.Vks)
+            if (Array.IndexOf(held, vk) < 0) Input.Down(vk);
         InterruptibleSleep(ms, isActive);
-        for (int i = step.Vks.Length - 1; i >= 0; i--) Input.Up(step.Vks[i]);
+        for (int i = step.Vks.Length - 1; i >= 0; i--)
+            if (Array.IndexOf(held, step.Vks[i]) < 0) Input.Up(step.Vks[i]);
 
         if (_cfg.Humanize && _cfg.MaxGapMs > 0)
-            InterruptibleSleep(_rng.Next(0, _cfg.MaxGapMs + 1), isActive);
+            InterruptibleSleep(Rng.Next(0, _cfg.MaxGapMs + 1), isActive);
     }
 
     int HumanMs(int ms)
     {
-        int baseMs = ms < _cfg.MinStepMs ? _cfg.MinStepMs : ms;
+        int tuned = ms + _tempoOffsetMs;
+        int baseMs = tuned < _cfg.MinStepMs ? _cfg.MinStepMs : tuned;
         if (!_cfg.Humanize || _cfg.JitterPercent <= 0) return baseMs;
         int span = (int)Math.Round(baseMs * _cfg.JitterPercent / 100.0);
-        int outMs = baseMs + _rng.Next(-span, span + 1);
+        int outMs = baseMs + Rng.Next(-span, span + 1);
         int floor = _cfg.MinStepMs > 20 ? _cfg.MinStepMs - 10 : 15;
         return outMs < floor ? floor : outMs;
     }
@@ -232,6 +248,16 @@ internal sealed class Engine : IDisposable
     }
 
     public void PanicStop() { StopAll(); _notify("Panic stop - all inputs released."); }
+
+    /// <summary>
+    /// Shifts every hold time up or down on the fly. High ping makes the survivor
+    /// creep round mid-moonwalk; a few ms either way usually settles it.
+    /// </summary>
+    public void NudgeTempo(int deltaMs, bool reset = false)
+    {
+        _tempoOffsetMs = reset ? 0 : Math.Clamp(_tempoOffsetMs + deltaMs, -100, 300);
+        _notify($"Tempo {(_tempoOffsetMs >= 0 ? "+" : "")}{_tempoOffsetMs}ms per tap");
+    }
 
     public void StopAll()
     {

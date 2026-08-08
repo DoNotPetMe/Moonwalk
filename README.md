@@ -14,47 +14,68 @@ per-trick **Hold / Toggle / Tap** modes.
 
 ---
 
-## The survivor moonwalk (what the research says)
+## How the moonwalk actually works
 
-**How the tech works:** a survivor's model turns to face whatever direction they
-move, so walking straight back normally spins them around. The moonwalk defeats
-that turn: move backwards (S) and give a **delicate A or D balance tap roughly
-every half second**, alternating sides, so the turn animation never completes —
-your survivor keeps facing forward while sliding backwards. Every tutorial makes
-the same point: **it's rhythm, not spam.** Tutorials also enter the moonwalk
-with a quick W→A→S→D circle while flicking the camera the *opposite* way.
+A survivor's model turns to face whatever direction they're moving, so holding
+S on its own just spins them round to face the camera and run off. The moonwalk
+defeats that turn by **never letting it finish**:
 
-Two mechanical details the tricks are built around:
+```
+S  ─────────────────────────────────────────────  held down, unbroken
+A  ███████        ███████        ███████           130ms
+D          ███████        ███████        ███████   130ms
+```
+
+The backward key stays **down the whole time** while A and D alternate on top of
+it, back to back, with no pause. Each tap re-aims the turn before the previous
+one can complete, so the model never rotates — it keeps facing forward while
+sliding backwards. That's the whole trick.
+
+The two things that break it, both of which this app got wrong before:
+
+- **Any gap where neither A nor D is pressed.** Dead time lets the rotation
+  finish and your survivor turns round and runs forward. The sustain patterns
+  are therefore *only* alternating taps, never a dwell.
+- **Releasing and re-pressing the backward key** between taps. That stutters the
+  movement and hands the game the same opening. Hence the `Hold=` setting: those
+  keys go down once at the start and are never touched again until you let go.
+
+`130ms` per tap is the value the long-running community moonwalk tool
+([iparamsh/MoonWalkScriptDBD](https://github.com/iparamsh/MoonWalkScriptDBD))
+settles on, and it's the default here. That tool also makes the delay adjustable
+because **ping** shifts it — so `PgUp` / `PgDn` nudge every tap ±5ms live and
+`Home` resets. If you start creeping round mid-glide, that's the dial to turn.
+
+Two more mechanics the tricks are built around:
 
 - **Shift is the survivor *walk* key** in DbD. Run-speed moonwalks must keep it
   released (per-trick `Sprint=0`); holding it gives the walk-speed version.
 - **Walking leaves no scratch marks** — so the walk-speed moonwalk doubles as a
   stealth mind-game at loops and line-of-sight breaks, not just style.
 
-On controller you'd normally have to do all of this with left-stick
-micro-movements at tuned stick sensitivity — that's exactly the part the app
-automates. The styles map onto the D-pad, one per button:
+### The tricks
 
 | D-pad | Trick | What it is |
 |-------|-------|------------|
-| **Down** | `Moonwalk` | **The** moonwalk — backwards run with the ~half-second balance-tap rhythm from the tutorials. Hold to glide, release to stop. |
-| **Up** | `StealthMoonwalk` | Same rhythm at walk speed (holds Shift): slower, silent, **no scratch marks**. |
-| **Left** | `DriftLeft` | Weighted balance taps — slides diagonally back-left while still facing forward, for drifting around a loop corner mid-moonwalk. |
-| **Right** | `DriftRight` | Mirror of the above, drifting right. |
+| **Down** | `Moonwalk` | **The** moonwalk — backward run held unbroken, A/D alternating at 130ms. Hold to glide, release to stop. |
+| **Up** | `StealthMoonwalk` | Same thing at walk speed (holds Shift): slower, silent, **no scratch marks**. |
+| **Left** | `DriftLeft` | One side gets a longer tap (180/90), so you slide left while still moonwalking — for peeling round a loop mid-glide. |
+| **Right** | `DriftRight` | Mirror of the above. |
 
 All four are **interchangeable**: each is just a `JoyButton=` line in
 `config.ini`, so swap `DUp`/`DDown`/`DLeft`/`DRight` between sections (or move a
-trick to any other pad button) and hit **Reload settings**. Two keyboard-only
-extras can be pad-bound the same way: `RapidFlick` (the older fast-flick
-moonwalk style — constant 50ms A/D alternation; some players prefer its look)
-and `SpinEntry` (the W→A→S→D entry circle — flick the right stick the opposite
-way while it runs, then start a moonwalk).
+trick to any other pad button) and hit **Reload settings**.
+
+There's also `RhythmOnly` (Numpad5, keyboard-only until you give it a
+`JoyButton=`). It has **no** backward hold — *you* hold S yourself and it just
+supplies the A/D rhythm, which is exactly what the original community tool does.
+Use it when you want to steer and stop the backward movement by hand.
 
 **Why this works while you play on controller:** DbD accepts keyboard and
 controller input at the same time. You keep steering the camera with the right
-stick as normal; the app sends the WASD movement pattern underneath. Note that
-the D-pad still does whatever the game has bound to it — pick buttons the game
-isn't using, or rebind them in DbD's own settings.
+stick as normal; the app sends the WASD pattern underneath. Note that the D-pad
+still does whatever the game has bound to it — pick buttons the game isn't
+using, or rebind them in DbD's own settings.
 
 ---
 
@@ -94,21 +115,30 @@ tray icon toggles enable/disable.
 | `F8`  | Enable / disable all output |
 | `F10` | Panic stop — release every key |
 | `F9`  | Detect controller button (shows the name to bind) |
+| `PgUp` / `PgDn` | Tempo ±5ms on every tap — **your ping dial** |
+| `Home` | Reset tempo to the configured values |
 
 ## 4. The trick engine
 
-Each trick has an **Intro** (played once) and a **Sustain** (looped while active).
-Both use the same token language:
+Each trick has a **Hold** (keys pressed for its whole duration), an **Intro**
+(played once) and a **Sustain** (looped while active). They share one token
+language:
 
 ```
-F = forward    B = backward    L = left    R = right    S = sprint
+F = forward    B = backward    L = left    R = right    S = sprint/walk
 
-One step  = DIR:MS        hold that direction for MS milliseconds   ->  L:200
+One step  = DIR:MS        hold that direction for MS milliseconds   ->  L:130
 Diagonal  = combine keys  press several at once                     ->  FL:120
-Chain     = commas        run steps in order                        ->  L:200,B:300,L:200,F:300
+Chain     = commas        run steps in order                        ->  L:130,R:130
 ```
 
 `MS` is milliseconds (omit `:MS` for a 100ms default).
+
+**`Hold=` is what makes a moonwalk a moonwalk.** Those keys go down once when the
+trick starts and stay down until it ends — they are never released between steps,
+and a step naming the same key won't re-press it. `Hold=B` with
+`Sustain=L:130,R:130` is the core pattern: unbroken backward movement with
+uninterrupted A/D alternation layered on top.
 
 ### Activation modes (`Mode=` per trick)
 
@@ -128,12 +158,16 @@ GameProcess=DeadByDaylight-Win64-Shipping.exe
 ShowStatusGui=1             ; on-screen overlay
 DefaultMode=                ; blank=per-trick | Hold | Toggle (force all)
 Humanize=1                  ; natural timing variation
-JitterPercent=15            ; +/- random variation per hold
+JitterPercent=6             ; +/- random variation per hold (small: rhythm matters)
 MinStepMs=30                ; floor: no step ever shorter than this
-MaxGapMs=10                 ; max random gap between steps
+MaxGapMs=2                  ; max random gap between steps (keep tiny)
 MasterToggleKey=F8
 PanicStopKey=F10
 DetectControllerKey=F9
+TempoUpKey=PgUp             ; live +5ms per tap
+TempoDownKey=PgDn           ; live -5ms per tap
+TempoResetKey=Home
+TempoStepMs=5
 
 [Movement]                  ; your in-game binds
 Forward=w
@@ -148,7 +182,7 @@ PlayerIndex=1               ; XInput slot 1-4
 PollRate=10
 
 [Tricks]
-List=Moonwalk,StealthMoonwalk,DriftLeft,DriftRight,RapidFlick,SpinEntry
+List=Moonwalk,StealthMoonwalk,DriftLeft,DriftRight,RhythmOnly
 ```
 
 Each name in `List` gets a section:
@@ -159,8 +193,9 @@ Mode=Hold
 Key=Numpad2                 ; keyboard trigger ("" to disable)
 JoyButton=DDown             ; controller button name(s), comma-separated ("" to disable)
 Sprint=0                    ; per-trick: 1=hold Shift, 0=never, omit=use [General] Sprinting
-Intro=B:220
-Sustain=BL:60,B:380,BR:60,B:380
+Hold=B                      ; held down for the whole trick, never released between steps
+Intro=
+Sustain=L:130,R:130
 ```
 
 **Key names:** letters, digits, `Numpad0`–`Numpad9`, `F1`–`F24`, `Shift`, `Ctrl`,
@@ -171,14 +206,15 @@ DLeft DRight` (press `F9` to discover which is which).
 ### Add your own trick
 
 1. Add a name to `List=`.
-2. Add a `[YourTrick]` section with `Mode`, `Key`/`JoyButton`, `Intro`, optional `Sustain`.
+2. Add a `[YourTrick]` section with `Mode`, `Key`/`JoyButton`, optional `Hold`,
+   `Intro` and `Sustain`.
 3. Tray → **Reload settings**.
 
 ## 6. Timing realism & detection (read this)
 
-The default timings follow what the survivor moonwalk tutorials actually teach —
-a delicate balance tap roughly every half second, not machine-gun key spam. On
-top of that the engine keeps inputs human-plausible:
+The default 130ms tap comes from the community moonwalk tool that players have
+been using for this exact tech. On top of that the engine keeps inputs
+human-plausible:
 
 - **`MinStepMs` floor** — no step is held shorter than ~30ms, so you can't
   configure a faster-than-human tap by mistake.
@@ -209,6 +245,12 @@ Requires the .NET 8 SDK. Output: `publish/MoonwalkPro.exe`.
 
 ## 8. Troubleshooting
 
+- **Survivor turns round and runs off mid-moonwalk** → that's ping. Tap `PgUp`
+  (or `PgDn`) a few times while moonwalking until it holds; the overlay shows the
+  current offset. If it never holds, check `Hold=B` is present on the trick — with
+  no held backward key it can only wobble left and right on the spot.
+- **It only wiggles left/right and doesn't go backwards** → same cause: `Hold=`
+  is empty. That's intentional on `RhythmOnly`, where *you* hold S.
 - **Nothing happens** → check the `F8` master state (overlay shows `ON/OFF`).
 - **Keys feel stuck** → press `F10` (panic). Raise low per-step times.
 - **Controller ignored** → `Enabled=1`, correct `PlayerIndex`, and use `F9` to

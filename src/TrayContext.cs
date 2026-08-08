@@ -153,12 +153,19 @@ internal sealed class TrayContext : ApplicationContext
 
     void ShowHelp()
     {
+        var sb = new System.Text.StringBuilder("Your tricks:\n");
+        foreach (var t in _cfg.Tricks)
+        {
+            string pad = t.JoyButtons.Length > 0 ? string.Join("/", t.JoyButtons) : "-";
+            sb.AppendLine($"  {t.Name,-18} pad: {pad,-8} key: {_cfg.Ini.Get(t.Name, "Key", "-")}");
+        }
+
         MessageBox.Show(
-            "Default triggers:\n" +
-            "  Numpad3 = moonwalk back     Numpad2 = moonwalk forward\n" +
-            "  Numpad1 = circle-strafe     Numpad0 = quick juke\n\n" +
-            "System keys:\n" +
-            "  F8 = enable/disable     F9 = detect controller button     F10 = panic stop\n\n" +
+            sb + "\nSystem keys:\n" +
+            "  F8 = enable/disable     F9 = detect controller button     F10 = panic stop\n" +
+            "  PgUp / PgDn = tempo +/- 5ms     Home = reset tempo\n\n" +
+            "If your survivor turns round mid-moonwalk, that is ping - nudge the tempo\n" +
+            "with PgUp/PgDn until it holds.\n\n" +
             "Controller: bind buttons by name (A B X Y LB RB LT RT LS RS Back Start DUp...).\n" +
             "Edit everything (keys, timings, tricks) from the tray menu -> Edit settings.",
             "Moonwalk Pro - help");

@@ -49,7 +49,8 @@ internal sealed class StatusOverlay : Form
         string state = !e.Enabled ? "DISABLED"
             : e.ActiveTrick.Length == 0 ? "idle"
             : ">> " + e.ActiveTrick;
-        _label.Text = $"Moonwalk Pro [{(e.Enabled ? "ON" : "OFF")}]\n{state}";
+        string tempo = e.TempoOffsetMs == 0 ? "" : $"  tempo {e.TempoOffsetMs:+#;-#}ms";
+        _label.Text = $"Moonwalk Pro [{(e.Enabled ? "ON" : "OFF")}]{tempo}\n{state}";
     }
 
     protected override bool ShowWithoutActivation => true;
