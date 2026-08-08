@@ -1,10 +1,25 @@
-# Moonwalk Pro
+# Moonwalk
 
-A **native Windows tray app** for Dead by Daylight **survivor moonwalking** —
-built for controller players. No AutoHotkey — it's a self-contained C#/.NET app. Tricks
-are defined as step sequences in `config.ini`, so you can tune them or invent new
-ones without touching code. Keyboard **and** Xbox-controller triggers, with
-per-trick **Hold / Toggle / Tap** modes.
+Dead by Daylight **survivor moonwalking** on a controller button, as two Windows
+apps. No AutoHotkey — both are self-contained C#/.NET executables.
+
+| | **Moonwalk Lite** ← start here | **Moonwalk Pro** |
+|---|---|---|
+| What it is | A direct port of the community script [iparamsh/MoonWalkScriptDBD](https://github.com/iparamsh/MoonWalkScriptDBD), with the trigger moved to your D-pad | A tray app with multiple configurable moonwalk styles |
+| Moves | One moonwalk, the proven one | Moonwalk, stealth/walk, drift left, drift right, rhythm-only |
+| Settings | 4 lines, plus live keys | `config.ini` trick language, tray menu, overlay |
+| Use it when | You want the thing that works | You want variants and per-trick binds |
+
+**If the moonwalk isn't working, use Lite.** It is deliberately about 200 lines
+doing exactly what the original script does — press A for 130ms, press D for
+130ms, repeat — so there is very little that can be wrong with it.
+
+> ### ⚠️ Don't touch the left stick while moonwalking
+> This is the one that catches controller players out. The app moves you with
+> **keyboard** keys; your left stick moves you too, and the two fight each other
+> — you'll get a character twitching on the spot or wandering forward instead of
+> gliding back. **Let go of the left stick, hold the D-pad button, and steer with
+> the right stick only.**
 
 > ⚠️ **Use responsibly.** This automates the same movement inputs a player does by
 > hand. It does **not** read game memory, see walls, or aim for you. Macros can
@@ -40,13 +55,13 @@ The two things that break it, both of which this app got wrong before:
   movement and hands the game the same opening. Hence the `Hold=` setting: those
   keys go down once at the start and are never touched again until you let go.
 
-`130ms` per tap is the value the long-running community moonwalk tool
-([iparamsh/MoonWalkScriptDBD](https://github.com/iparamsh/MoonWalkScriptDBD))
-settles on, and it's the default here. That tool also makes the delay adjustable
-because **ping** shifts it — so `PgUp` / `PgDn` nudge every tap ±5ms live and
-`Home` resets. If you start creeping round mid-glide, that's the dial to turn.
+`130ms` per tap is the value the community moonwalk script settles on, and it's
+the default in both apps. That script also makes the delay adjustable because
+**ping** shifts it — so Pro uses `PgUp` / `PgDn` (±5ms, `Home` resets) and Lite
+uses `END` / `INSERT` (middle-click resets), matching the original. If you start
+creeping round mid-glide, that's the dial to turn.
 
-Two more mechanics the tricks are built around:
+Two more mechanics the Pro tricks are built around:
 
 - **Shift is the survivor *walk* key** in DbD. Run-speed moonwalks must keep it
   released (per-trick `Sprint=0`); holding it gives the walk-speed version.
@@ -72,23 +87,54 @@ supplies the A/D rhythm, which is exactly what the original community tool does.
 Use it when you want to steer and stop the backward movement by hand.
 
 **Why this works while you play on controller:** DbD accepts keyboard and
-controller input at the same time. You keep steering the camera with the right
-stick as normal; the app sends the WASD pattern underneath. Note that the D-pad
-still does whatever the game has bound to it — pick buttons the game isn't
-using, or rebind them in DbD's own settings.
+controller input at the same time, so the app can drive movement with WASD while
+you steer the camera with the right stick. That is also why the left stick has to
+stay still — see the warning at the top. Note that the D-pad still does whatever
+the game has bound to it — pick buttons the game isn't using, or rebind them in
+DbD's own settings.
 
 ---
 
-## 1. Get the app (nothing to install)
+## 1. Get the apps (nothing to install)
 
 1. Go to the **Actions** tab of this repo.
 2. Open the latest **“Build Moonwalk Pro (.exe)”** run.
 3. Download the **`MoonwalkPro`** artifact (a zip) at the bottom.
-4. Unzip and double-click **`MoonwalkPro.exe`**.
+4. Unzip. You get **`MoonwalkLite.exe`** and **`MoonwalkPro.exe`**.
 
-It's a single self-contained executable — **no .NET, no AutoHotkey, nothing to
-install.** It runs in the **hidden-icons** area of the taskbar tray. On first
-launch it writes `config.ini` next to itself.
+Both are single self-contained executables — **no .NET, no AutoHotkey, nothing
+to install.**
+
+### Moonwalk Lite
+
+Double-click **`MoonwalkLite.exe`** — a small console window opens showing your
+bindings. In a match: **let go of the left stick, hold D-pad Down.** That's it.
+
+| Key | Does |
+|-----|------|
+| hold **D-pad Down** (or mouse4) | Moonwalk |
+| `END` / `INSERT` | Delay ±5ms — **your ping dial** |
+| middle-click | Delay back to 130 |
+| `F9` | Press a pad button to re-bind the trigger (saved) |
+| `F10` | Panic — release every key |
+
+First launch writes **`MoonwalkLite.ini`** next to the exe:
+
+```ini
+Button=DDown        ; any pad button; F9 sets it for you
+Delay=130           ; ms per A/D tap
+HoldBackward=1      ; 1 = it holds S for you; 0 = you hold S (like the original)
+PlayerIndex=1       ; XInput slot 1-4
+```
+
+`HoldBackward=0` gives you the original script's exact behaviour: it only
+supplies the A/D rhythm and you hold S yourself.
+
+### Moonwalk Pro
+
+Double-click **`MoonwalkPro.exe`**. It runs in the **hidden-icons** area of the
+taskbar tray and writes `config.ini` next to itself on first launch. Everything
+below this point is about Pro.
 
 ## 2. Tray menu (the settings panel)
 
@@ -234,23 +280,32 @@ games actually read.
 
 ## 7. Build it yourself (optional)
 
-You don't need to — GitHub builds the exe. But if you want to:
+You don't need to — GitHub builds both exes. But if you want to:
 
 ```
 dotnet publish MoonwalkPro.csproj -c Release -r win-x64 --self-contained true ^
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+
+dotnet publish lite/MoonwalkLite.csproj -c Release -r win-x64 --self-contained true ^
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
-Requires the .NET 8 SDK. Output: `publish/MoonwalkPro.exe`.
+Requires the .NET 8 SDK. Outputs: `publish/MoonwalkPro.exe`, `publish-lite/MoonwalkLite.exe`.
 
 ## 8. Troubleshooting
 
-- **Survivor turns round and runs off mid-moonwalk** → that's ping. Tap `PgUp`
-  (or `PgDn`) a few times while moonwalking until it holds; the overlay shows the
-  current offset. If it never holds, check `Hold=B` is present on the trick — with
-  no held backward key it can only wobble left and right on the spot.
-- **It only wiggles left/right and doesn't go backwards** → same cause: `Hold=`
-  is empty. That's intentional on `RhythmOnly`, where *you* hold S.
+- **Character twitches on the spot / drifts forward instead of gliding back** →
+  you're holding the left stick. Let go of it completely; the app does the
+  moving, you only steer with the right stick.
+- **Survivor turns round and runs off mid-moonwalk** → that's ping. Tap the delay
+  keys a few times *while moonwalking* until it holds (`PgUp`/`PgDn` in Pro,
+  `END`/`INSERT` in Lite).
+- **Still not moonwalking in Pro** → run **Lite** instead and confirm it works
+  there first. Lite has almost no moving parts, so it isolates whether the
+  problem is the technique/settings or Pro's configuration.
+- **It only wiggles left/right and doesn't go backwards** → nothing is holding
+  the backward key: `Hold=` is empty on that Pro trick (intentional on
+  `RhythmOnly`), or `HoldBackward=0` in Lite. Either way *you* must hold S.
 - **Nothing happens** → check the `F8` master state (overlay shows `ON/OFF`).
 - **Keys feel stuck** → press `F10` (panic). Raise low per-step times.
 - **Controller ignored** → `Enabled=1`, correct `PlayerIndex`, and use `F9` to

@@ -44,11 +44,26 @@ jobs:
           $f = Get-Item "publish/MoonwalkPro.exe"
           Write-Host "Built MoonwalkPro.exe ($([math]::Round($f.Length/1MB,1)) MB)"
 
+      - name: Publish Moonwalk Lite
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          dotnet publish lite/MoonwalkLite.csproj `
+            -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -o publish-lite
+          if (-not (Test-Path "publish-lite/MoonwalkLite.exe")) { throw "Lite publish produced no exe" }
+          $f = Get-Item "publish-lite/MoonwalkLite.exe"
+          Write-Host "Built MoonwalkLite.exe ($([math]::Round($f.Length/1MB,1)) MB)"
+
       - name: Stage release files
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Copy-Item publish/MoonwalkPro.exe dist/
+          Copy-Item publish-lite/MoonwalkLite.exe dist/
           Copy-Item config.ini dist/ -ErrorAction SilentlyContinue
           Copy-Item README.md  dist/ -ErrorAction SilentlyContinue
 
