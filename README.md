@@ -14,6 +14,38 @@ per-trick **Hold / Toggle / Tap** modes.
 
 ---
 
+## The moonwalk styles (what the research says)
+
+"Moonwalking" in DbD is mostly a **killer** technique: the red stain projects in
+front of wherever the killer's camera faces, and survivors at a loop use it as an
+early-warning system for which way you're coming. Walking **backwards or
+sideways while keeping the camera pointed elsewhere** hides that tell and buys a
+surprise lunge around a corner or through a pallet. (Survivor-side moonwalking —
+the old rapid-A/D wiggle — was largely neutralized by dedicated servers, so the
+survivor value today is mostly style points.) The community-known variants map
+onto the four default tricks, one per D-pad button:
+
+| D-pad | Trick | What it is |
+|-------|-------|------------|
+| **Down** | `ClassicMoonwalk` | Plain backwards walk. You aim the camera where you want survivors to *think* you're going; the red stain points there while you back around the loop. The bread-and-butter red-stain hide. |
+| **Up** | `MJGlide` | The stutter moonwalk: a short direction-scrambling intro, then rapid alternating strafes — the "Michael Jackson glide" look from the long-running community script, with its field-tested timings. |
+| **Left** | `DiagonalLeft` | Back-left diagonal walk — hides the stain while still drifting toward the left side of a loop. |
+| **Right** | `DiagonalRight` | Mirror of the above, drifting right. |
+
+All four are **interchangeable**: each is just a `JoyButton=` line in
+`config.ini`, so swap `DUp`/`DDown`/`DLeft`/`DRight` between sections (or move a
+trick to any other pad button) and hit **Reload settings**. Two keyboard-only
+extras (`CircleStrafe`, `QuickJuke`) are included and can be pad-bound the same
+way.
+
+**Why this works while you play on controller:** DbD accepts keyboard and
+controller input at the same time. You keep steering the camera with the right
+stick as normal; the app sends the WASD movement pattern underneath. Note that
+the D-pad still does whatever the game has bound to it — pick buttons the game
+isn't using, or rebind them in DbD's own settings.
+
+---
+
 ## 1. Get the app (nothing to install)
 
 1. Go to the **Actions** tab of this repo.
@@ -104,16 +136,16 @@ PlayerIndex=1               ; XInput slot 1-4
 PollRate=10
 
 [Tricks]
-List=MoonwalkBackward,MoonwalkForward,CircleStrafe,QuickJuke
+List=ClassicMoonwalk,MJGlide,DiagonalLeft,DiagonalRight,CircleStrafe,QuickJuke
 ```
 
 Each name in `List` gets a section:
 
 ```ini
-[MoonwalkBackward]
+[MJGlide]
 Mode=Hold
-Key=Numpad3                 ; keyboard trigger ("" to disable)
-JoyButton=LB                ; controller button name(s), comma-separated ("" to disable)
+Key=Numpad8                 ; keyboard trigger ("" to disable)
+JoyButton=DUp               ; controller button name(s), comma-separated ("" to disable)
 Intro=L:200,B:300,L:200,F:300
 Sustain=L:60,R:60
 ```

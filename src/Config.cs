@@ -170,37 +170,65 @@ internal sealed class Config
 
         ; Button names: A B X Y LB RB LT RT LS RS Back Start DUp DDown DLeft DRight
         ; (comma-separate to bind several). Press the Detect key to discover names.
+        ; The four moonwalk styles default to the D-pad - swap the JoyButton= lines
+        ; between sections to rearrange them however you like.
 
         [Tricks]
-        List=MoonwalkBackward,MoonwalkForward,CircleStrafe,QuickJuke
+        List=ClassicMoonwalk,MJGlide,DiagonalLeft,DiagonalRight,CircleStrafe,QuickJuke
 
-        [MoonwalkBackward]
+        ; --- D-pad Down: the killer red-stain moonwalk -------------------------------
+        ; Plain backwards walk. You keep the camera (right stick / mouse) pointed
+        ; wherever you want survivors to THINK you're going; your red stain points
+        ; there while you actually back around the loop.
+        [ClassicMoonwalk]
         Mode=Hold
-        Key=Numpad3
-        JoyButton=LB
+        Key=Numpad2
+        JoyButton=DDown
+        Intro=B:250
+        Sustain=B:600
+
+        ; --- D-pad Up: the stutter / "MJ" glide --------------------------------------
+        ; The classic community moonwalk pattern: a direction-scrambling intro, then
+        ; rapid alternating strafes for the glide look. Timings are the field-tested
+        ; community-script values.
+        [MJGlide]
+        Mode=Hold
+        Key=Numpad8
+        JoyButton=DUp
         Intro=L:200,B:300,L:200,F:300
         Sustain=L:60,R:60
 
-        [MoonwalkForward]
+        ; --- D-pad Left / Right: diagonal moonwalks ----------------------------------
+        ; Back-diagonal walk: hides the stain while still drifting toward one side of
+        ; a loop. Mirror pair, so bind whichever side you juke toward more.
+        [DiagonalLeft]
         Mode=Hold
-        Key=Numpad2
-        JoyButton=RB
-        Intro=F:200,L:300,B:400
-        Sustain=L:80,R:80
+        Key=Numpad4
+        JoyButton=DLeft
+        Intro=B:150
+        Sustain=BL:500
 
+        [DiagonalRight]
+        Mode=Hold
+        Key=Numpad6
+        JoyButton=DRight
+        Intro=B:150
+        Sustain=BR:500
+
+        ; --- Extras (keyboard-only by default; give them a JoyButton to pad-bind) ----
         ; Circle-strafe juke. WASD only strafes relative to the camera - a true
         ; camera 360 needs the mouse. This walks a quick circle to bait a swing.
         [CircleStrafe]
         Mode=Tap
         Key=Numpad1
-        JoyButton=Y
+        JoyButton=
         Intro=L:90,FL:90,F:90,FR:90,R:90,BR:90,B:90,BL:90
         Sustain=
 
         [QuickJuke]
         Mode=Tap
         Key=Numpad0
-        JoyButton=X
+        JoyButton=
         Intro=L:120,R:120
         Sustain=
 
