@@ -16,6 +16,7 @@ internal sealed class Trick
     public string Mode = "Hold";          // Hold | Toggle | Tap
     public int KeyVk = -1;                 // keyboard trigger virtual-key (-1 = none)
     public string[] JoyButtons = Array.Empty<string>();
+    public int SprintOverride = -1;        // -1 = inherit [General] Sprinting, 0 = off, 1 = on
     public List<Step> Intro = new();
     public List<Step> Sustain = new();
 }
@@ -81,6 +82,7 @@ internal sealed class Config
                 Mode = ini.Get(name, "Mode", "Hold").Trim(),
                 KeyVk = Keys.Vk(ini.Get(name, "Key", "")),
                 JoyButtons = ini.Get(name, "JoyButton", "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+                SprintOverride = ini.Get(name, "Sprint", "").Trim() switch { "0" => 0, "1" => 1, _ => -1 },
                 Intro = ParseSteps(ini.Get(name, "Intro", ""), c.KeyMap),
                 Sustain = ParseSteps(ini.Get(name, "Sustain", ""), c.KeyMap),
             };
@@ -131,8 +133,10 @@ internal sealed class Config
         ; ============================================================================
 
         [General]
-        ; Hold the sprint key for the whole trick? 1/0
-        Sprinting=1
+        ; Hold the [Movement] Sprint key during tricks? 1/0. NOTE: in DbD, Shift is the
+        ; survivor WALK key - holding it slows you to walking speed. Leave this 0 for
+        ; run-speed tricks; individual tricks can override with their own Sprint= line.
+        Sprinting=0
         ; Only act while the game window is focused? 1/0
         OnlyWhenGameActive=0
         GameProcess=DeadByDaylight-Win64-Shipping.exe
@@ -159,6 +163,8 @@ internal sealed class Config
         Backward=s
         Left=a
         Right=d
+        ; In DbD this is the survivor Walk key (Shift). Held only when Sprinting=1
+        ; globally or a trick sets Sprint=1.
         Sprint=Shift
 
         [Controller]
@@ -174,18 +180,20 @@ internal sealed class Config
         ; between sections to rearrange them however you like.
 
         [Tricks]
-        List=ClassicMoonwalk,MJGlide,DiagonalLeft,DiagonalRight,CircleStrafe,QuickJuke
+        List=SurvivorMoonwalk,MJGlide,DiagonalLeft,DiagonalRight,ClassicMoonwalk,CircleStrafe,QuickJuke
 
-        ; --- D-pad Down: the killer red-stain moonwalk -------------------------------
-        ; Plain backwards walk. You keep the camera (right stick / mouse) pointed
-        ; wherever you want survivors to THINK you're going; your red stain points
-        ; there while you actually back around the loop.
-        [ClassicMoonwalk]
+        ; --- D-pad Down: THE survivor moonwalk ---------------------------------------
+        ; Run backwards while rapidly alternating A and D (the Ayrun-style tech). The
+        ; fast left/right flicks keep your survivor's model facing forward while they
+        ; slide backwards. Sprint=0 keeps Shift (walk) released so it's a full-speed
+        ; RUN backwards; copy the section with Sprint=1 if you want a slow-walk version.
+        [SurvivorMoonwalk]
         Mode=Hold
         Key=Numpad2
         JoyButton=DDown
-        Intro=B:250
-        Sustain=B:600
+        Sprint=0
+        Intro=
+        Sustain=BL:50,BR:50
 
         ; --- D-pad Up: the stutter / "MJ" glide --------------------------------------
         ; The classic community moonwalk pattern: a direction-scrambling intro, then
@@ -216,6 +224,15 @@ internal sealed class Config
         Sustain=BR:500
 
         ; --- Extras (keyboard-only by default; give them a JoyButton to pad-bind) ----
+        ; Killer red-stain moonwalk: plain backwards walk while your camera (and red
+        ; stain) point where survivors THINK you're going.
+        [ClassicMoonwalk]
+        Mode=Hold
+        Key=Numpad5
+        JoyButton=
+        Intro=B:250
+        Sustain=B:600
+
         ; Circle-strafe juke. WASD only strafes relative to the camera - a true
         ; camera 360 needs the mouse. This walks a quick circle to bait a swing.
         [CircleStrafe]

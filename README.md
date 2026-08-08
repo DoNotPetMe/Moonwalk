@@ -16,27 +16,30 @@ per-trick **Hold / Toggle / Tap** modes.
 
 ## The moonwalk styles (what the research says)
 
-"Moonwalking" in DbD is mostly a **killer** technique: the red stain projects in
-front of wherever the killer's camera faces, and survivors at a loop use it as an
-early-warning system for which way you're coming. Walking **backwards or
-sideways while keeping the camera pointed elsewhere** hides that tell and buys a
-surprise lunge around a corner or through a pallet. (Survivor-side moonwalking —
-the old rapid-A/D wiggle — was largely neutralized by dedicated servers, so the
-survivor value today is mostly style points.) The community-known variants map
-onto the four default tricks, one per D-pad button:
+The headliner is the **survivor moonwalk**: run backwards (hold S) while
+**rapidly alternating A and D**. The fast left/right flicks keep your survivor's
+model facing forward while they slide backwards — the Ayrun-style tech from the
+tutorials. Important detail for the macro: in DbD, **Shift is the survivor
+*walk* key**, so the trick deliberately keeps Shift released to stay at full run
+speed (that's the per-trick `Sprint=0`).
+
+Moonwalking also matters on the **killer** side: the red stain projects where
+the killer's camera faces, and survivors at a loop read it as an early warning.
+Walking backwards or diagonally while aiming the camera elsewhere hides that
+tell. The variants map onto the D-pad, one per button:
 
 | D-pad | Trick | What it is |
 |-------|-------|------------|
-| **Down** | `ClassicMoonwalk` | Plain backwards walk. You aim the camera where you want survivors to *think* you're going; the red stain points there while you back around the loop. The bread-and-butter red-stain hide. |
+| **Down** | `SurvivorMoonwalk` | **The** survivor moonwalk — full-speed backwards run with rapid A/D alternation (50ms flicks). Hold to glide, release to stop. |
 | **Up** | `MJGlide` | The stutter moonwalk: a short direction-scrambling intro, then rapid alternating strafes — the "Michael Jackson glide" look from the long-running community script, with its field-tested timings. |
-| **Left** | `DiagonalLeft` | Back-left diagonal walk — hides the stain while still drifting toward the left side of a loop. |
+| **Left** | `DiagonalLeft` | Back-left diagonal walk — drifts toward the left side of a loop (hides the killer's red stain too). |
 | **Right** | `DiagonalRight` | Mirror of the above, drifting right. |
 
 All four are **interchangeable**: each is just a `JoyButton=` line in
 `config.ini`, so swap `DUp`/`DDown`/`DLeft`/`DRight` between sections (or move a
-trick to any other pad button) and hit **Reload settings**. Two keyboard-only
-extras (`CircleStrafe`, `QuickJuke`) are included and can be pad-bound the same
-way.
+trick to any other pad button) and hit **Reload settings**. Keyboard-only extras
+(`ClassicMoonwalk` — the plain killer red-stain backwards walk — plus
+`CircleStrafe` and `QuickJuke`) can be pad-bound the same way.
 
 **Why this works while you play on controller:** DbD accepts keyboard and
 controller input at the same time. You keep steering the camera with the right
@@ -110,7 +113,7 @@ Chain     = commas        run steps in order                        ->  L:200,B:
 
 ```ini
 [General]
-Sprinting=1                 ; hold sprint during tricks
+Sprinting=0                 ; hold Shift during tricks (Shift = survivor WALK in DbD)
 OnlyWhenGameActive=0        ; only fire when the game window is focused
 GameProcess=DeadByDaylight-Win64-Shipping.exe
 ShowStatusGui=1             ; on-screen overlay
@@ -142,12 +145,13 @@ List=ClassicMoonwalk,MJGlide,DiagonalLeft,DiagonalRight,CircleStrafe,QuickJuke
 Each name in `List` gets a section:
 
 ```ini
-[MJGlide]
+[SurvivorMoonwalk]
 Mode=Hold
-Key=Numpad8                 ; keyboard trigger ("" to disable)
-JoyButton=DUp               ; controller button name(s), comma-separated ("" to disable)
-Intro=L:200,B:300,L:200,F:300
-Sustain=L:60,R:60
+Key=Numpad2                 ; keyboard trigger ("" to disable)
+JoyButton=DDown             ; controller button name(s), comma-separated ("" to disable)
+Sprint=0                    ; per-trick: 1=hold Shift, 0=never, omit=use [General] Sprinting
+Intro=
+Sustain=BL:50,BR:50
 ```
 
 **Key names:** letters, digits, `Numpad0`–`Numpad9`, `F1`–`F24`, `Shift`, `Ctrl`,
