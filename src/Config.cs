@@ -180,73 +180,69 @@ internal sealed class Config
         ; between sections to rearrange them however you like.
 
         [Tricks]
-        List=SurvivorMoonwalk,MJGlide,DiagonalLeft,DiagonalRight,ClassicMoonwalk,CircleStrafe,QuickJuke
+        List=Moonwalk,StealthMoonwalk,DriftLeft,DriftRight,RapidFlick,SpinEntry
 
         ; --- D-pad Down: THE survivor moonwalk ---------------------------------------
-        ; Run backwards while rapidly alternating A and D (the Ayrun-style tech). The
-        ; fast left/right flicks keep your survivor's model facing forward while they
-        ; slide backwards. Sprint=0 keeps Shift (walk) released so it's a full-speed
-        ; RUN backwards; copy the section with Sprint=1 if you want a slow-walk version.
-        [SurvivorMoonwalk]
+        ; Run backwards while your survivor keeps facing forward. The tutorials agree
+        ; it's rhythm, not spam: walk back and give a delicate A or D balance tap about
+        ; every half second, so the turn animation never completes.
+        [Moonwalk]
         Mode=Hold
         Key=Numpad2
         JoyButton=DDown
         Sprint=0
-        Intro=
-        Sustain=BL:50,BR:50
+        Intro=B:220
+        Sustain=BL:60,B:380,BR:60,B:380
 
-        ; --- D-pad Up: the stutter / "MJ" glide --------------------------------------
-        ; The classic community moonwalk pattern: a direction-scrambling intro, then
-        ; rapid alternating strafes for the glide look. Timings are the field-tested
-        ; community-script values.
-        [MJGlide]
+        ; --- D-pad Up: stealth (walking) moonwalk ------------------------------------
+        ; The same rhythm at WALK speed (holds Shift). Walking leaves no scratch marks,
+        ; so this is the mind-game version for loops and line-of-sight breaks.
+        [StealthMoonwalk]
         Mode=Hold
         Key=Numpad8
         JoyButton=DUp
-        Intro=L:200,B:300,L:200,F:300
-        Sustain=L:60,R:60
+        Sprint=1
+        Intro=B:250
+        Sustain=BL:70,B:420,BR:70,B:420
 
-        ; --- D-pad Left / Right: diagonal moonwalks ----------------------------------
-        ; Back-diagonal walk: hides the stain while still drifting toward one side of
-        ; a loop. Mirror pair, so bind whichever side you juke toward more.
-        [DiagonalLeft]
+        ; --- D-pad Left / Right: diagonal drift moonwalks ----------------------------
+        ; Weighted balance taps so you slide diagonally backward while still facing
+        ; forward - for drifting around a loop corner mid-moonwalk. Mirror pair.
+        [DriftLeft]
         Mode=Hold
         Key=Numpad4
         JoyButton=DLeft
-        Intro=B:150
-        Sustain=BL:500
+        Sprint=0
+        Intro=B:200
+        Sustain=BL:420,BR:80
 
-        [DiagonalRight]
+        [DriftRight]
         Mode=Hold
         Key=Numpad6
         JoyButton=DRight
-        Intro=B:150
-        Sustain=BR:500
+        Sprint=0
+        Intro=B:200
+        Sustain=BR:420,BL:80
 
         ; --- Extras (keyboard-only by default; give them a JoyButton to pad-bind) ----
-        ; Killer red-stain moonwalk: plain backwards walk while your camera (and red
-        ; stain) point where survivors THINK you're going.
-        [ClassicMoonwalk]
+        ; The older fast-flick moonwalk style: constant rapid A/D alternation while
+        ; running backwards. Try both and keep whichever looks better at your FPS.
+        [RapidFlick]
         Mode=Hold
-        Key=Numpad5
+        Key=Numpad3
         JoyButton=
-        Intro=B:250
-        Sustain=B:600
+        Sprint=0
+        Intro=
+        Sustain=BL:50,BR:50
 
-        ; Circle-strafe juke. WASD only strafes relative to the camera - a true
-        ; camera 360 needs the mouse. This walks a quick circle to bait a swing.
-        [CircleStrafe]
+        ; Moonwalk entry spin: the quick W>A>S>D circle from the tutorials. Flick the
+        ; right stick the OPPOSITE way while it runs for the fast spin, then start a
+        ; moonwalk trick as it ends.
+        [SpinEntry]
         Mode=Tap
         Key=Numpad1
         JoyButton=
-        Intro=L:90,FL:90,F:90,FR:90,R:90,BR:90,B:90,BL:90
-        Sustain=
-
-        [QuickJuke]
-        Mode=Tap
-        Key=Numpad0
-        JoyButton=
-        Intro=L:120,R:120
+        Intro=F:80,FL:80,L:80,BL:80,B:80,BR:80,R:80,FR:80
         Sustain=
 
         """;
