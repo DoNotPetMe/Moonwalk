@@ -1,7 +1,7 @@
 # Moonwalk Pro
 
-A **native Windows tray app** for Dead by Daylight movement tech (moonwalking,
-jukes, circle-strafes). No AutoHotkey — it's a self-contained C#/.NET app. Tricks
+A **native Windows tray app** for Dead by Daylight **survivor moonwalking** —
+built for controller players. No AutoHotkey — it's a self-contained C#/.NET app. Tricks
 are defined as step sequences in `config.ini`, so you can tune them or invent new
 ones without touching code. Keyboard **and** Xbox-controller triggers, with
 per-trick **Hold / Toggle / Tap** modes.
@@ -11,6 +11,50 @@ per-trick **Hold / Toggle / Tap** modes.
 > still violate a game's Terms of Service, and Dead by Daylight's anti-cheat can
 > detect external automation by its presence regardless of how human the timing
 > looks. Treat it as a practice / custom-game tool, at your own risk.
+
+---
+
+## The survivor moonwalk (what the research says)
+
+**How the tech works:** a survivor's model turns to face whatever direction they
+move, so walking straight back normally spins them around. The moonwalk defeats
+that turn: move backwards (S) and give a **delicate A or D balance tap roughly
+every half second**, alternating sides, so the turn animation never completes —
+your survivor keeps facing forward while sliding backwards. Every tutorial makes
+the same point: **it's rhythm, not spam.** Tutorials also enter the moonwalk
+with a quick W→A→S→D circle while flicking the camera the *opposite* way.
+
+Two mechanical details the tricks are built around:
+
+- **Shift is the survivor *walk* key** in DbD. Run-speed moonwalks must keep it
+  released (per-trick `Sprint=0`); holding it gives the walk-speed version.
+- **Walking leaves no scratch marks** — so the walk-speed moonwalk doubles as a
+  stealth mind-game at loops and line-of-sight breaks, not just style.
+
+On controller you'd normally have to do all of this with left-stick
+micro-movements at tuned stick sensitivity — that's exactly the part the app
+automates. The styles map onto the D-pad, one per button:
+
+| D-pad | Trick | What it is |
+|-------|-------|------------|
+| **Down** | `Moonwalk` | **The** moonwalk — backwards run with the ~half-second balance-tap rhythm from the tutorials. Hold to glide, release to stop. |
+| **Up** | `StealthMoonwalk` | Same rhythm at walk speed (holds Shift): slower, silent, **no scratch marks**. |
+| **Left** | `DriftLeft` | Weighted balance taps — slides diagonally back-left while still facing forward, for drifting around a loop corner mid-moonwalk. |
+| **Right** | `DriftRight` | Mirror of the above, drifting right. |
+
+All four are **interchangeable**: each is just a `JoyButton=` line in
+`config.ini`, so swap `DUp`/`DDown`/`DLeft`/`DRight` between sections (or move a
+trick to any other pad button) and hit **Reload settings**. Two keyboard-only
+extras can be pad-bound the same way: `RapidFlick` (the older fast-flick
+moonwalk style — constant 50ms A/D alternation; some players prefer its look)
+and `SpinEntry` (the W→A→S→D entry circle — flick the right stick the opposite
+way while it runs, then start a moonwalk).
+
+**Why this works while you play on controller:** DbD accepts keyboard and
+controller input at the same time. You keep steering the camera with the right
+stick as normal; the app sends the WASD movement pattern underneath. Note that
+the D-pad still does whatever the game has bound to it — pick buttons the game
+isn't using, or rebind them in DbD's own settings.
 
 ---
 
@@ -78,7 +122,7 @@ Chain     = commas        run steps in order                        ->  L:200,B:
 
 ```ini
 [General]
-Sprinting=1                 ; hold sprint during tricks
+Sprinting=0                 ; hold Shift during tricks (Shift = survivor WALK in DbD)
 OnlyWhenGameActive=0        ; only fire when the game window is focused
 GameProcess=DeadByDaylight-Win64-Shipping.exe
 ShowStatusGui=1             ; on-screen overlay
@@ -104,18 +148,19 @@ PlayerIndex=1               ; XInput slot 1-4
 PollRate=10
 
 [Tricks]
-List=MoonwalkBackward,MoonwalkForward,CircleStrafe,QuickJuke
+List=Moonwalk,StealthMoonwalk,DriftLeft,DriftRight,RapidFlick,SpinEntry
 ```
 
 Each name in `List` gets a section:
 
 ```ini
-[MoonwalkBackward]
+[Moonwalk]
 Mode=Hold
-Key=Numpad3                 ; keyboard trigger ("" to disable)
-JoyButton=LB                ; controller button name(s), comma-separated ("" to disable)
-Intro=L:200,B:300,L:200,F:300
-Sustain=L:60,R:60
+Key=Numpad2                 ; keyboard trigger ("" to disable)
+JoyButton=DDown             ; controller button name(s), comma-separated ("" to disable)
+Sprint=0                    ; per-trick: 1=hold Shift, 0=never, omit=use [General] Sprinting
+Intro=B:220
+Sustain=BL:60,B:380,BR:60,B:380
 ```
 
 **Key names:** letters, digits, `Numpad0`–`Numpad9`, `F1`–`F24`, `Shift`, `Ctrl`,
@@ -131,9 +176,9 @@ DLeft DRight` (press `F9` to discover which is which).
 
 ## 6. Timing realism & detection (read this)
 
-The default hold times come straight from the long-running community moonwalk
-script — real, field-tested values, not made-up numbers. On top of that the
-engine keeps inputs human-plausible:
+The default timings follow what the survivor moonwalk tutorials actually teach —
+a delicate balance tap roughly every half second, not machine-gun key spam. On
+top of that the engine keeps inputs human-plausible:
 
 - **`MinStepMs` floor** — no step is held shorter than ~30ms, so you can't
   configure a faster-than-human tap by mistake.

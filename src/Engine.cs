@@ -138,8 +138,10 @@ internal sealed class Engine : IDisposable
             _ => () => Enabled && GameOk() && _activeTrick == t.Name,   // Tap
         };
 
+        bool sprint = (t.SprintOverride < 0 ? _cfg.Sprinting : t.SprintOverride == 1) && _cfg.SprintVk >= 0;
+
         ReleaseAllMovement();
-        if (_cfg.Sprinting && _cfg.SprintVk >= 0) Input.Down(_cfg.SprintVk);
+        if (sprint) Input.Down(_cfg.SprintVk);
 
         foreach (var step in t.Intro)
         {
@@ -164,7 +166,7 @@ internal sealed class Engine : IDisposable
             }
         }
 
-        if (_cfg.Sprinting && _cfg.SprintVk >= 0) Input.Up(_cfg.SprintVk);
+        if (sprint) Input.Up(_cfg.SprintVk);
         ReleaseAllMovement();
 
         if (_activeTrick == t.Name) _activeTrick = "";
